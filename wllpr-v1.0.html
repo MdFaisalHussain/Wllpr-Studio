@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WLLPR — Procedural Wallpaper Generator</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23111'/><text x='16' y='21' text-anchor='middle' font-family='sans-serif' font-size='13' font-weight='700' fill='white'>WPR</text></svg>">
+  
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :root {
+      --bg: #0f1012;
+      --bg-card: #17181c;
+      --bg-hover: #22242a;
+      --bg-nav: rgba(15, 16, 18, 0.85);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: #2a2d35;
+      --border-focus: #4b5563;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-full: 9999px;
+      --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+
+    body.light {
+      --bg: #f5f6f8;
+      --bg-card: #ffffff;
+      --bg-hover: #e5e7eb;
+      --bg-nav: rgba(245, 246, 248, 0.85);
+      --text: #111827;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --border-focus: #9ca3af;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+    }
+
+    body {
+      font-family: var(--font);
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.25s ease, color 0.25s ease;
+      user-select: none;
+    }
+
+    /* ── Navigation Header ── */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: var(--bg-nav);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      font-size: 16px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: var(--text);
+      color: var(--bg);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Language Switcher Dropdown */
+    .lang-dropdown-wrapper {
+      position: relative;
+    }
+
+    .lang-select-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .lang-select-btn:hover {
+      border-color: var(--border-focus);
+      background: var(--bg-hover);
+    }
+
+    .lang-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      min-width: 130px;
+      z-index: 200;
+    }
+
+    .lang-menu.open {
+      display: flex;
+    }
+
+    .lang-opt {
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: left;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition);
+    }
+
+    .lang-opt:hover, .lang-opt.active {
+      color: var(--text);
+      background: var(--bg-hover);
+      font-weight: 600;
+    }
+
+    /* Theme Switcher Toggle */
+    .segmented-pill {
+      display: flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .pill-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      width: 32px;
+      height: 30px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .pill-btn:hover {
+      color: var(--text);
+    }
+
+    .pill-btn.active {
+      background: var(--text);
+      color: var(--bg);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    /* ── Main Layout ── */
+    main {
+      margin-top: 64px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 24px;
+      padding: 24px 32px;
+      min-height: calc(100vh - 64px);
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 20px;
+      }
+    }
+
+    /* ── Previews Section ── */
+    .preview-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 16px;
+      position: relative;
+    }
+
+    .preview-cluster {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 24px;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+
+    .preview-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .preview-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.35);
+      transition: transform 0.2s ease;
+      background: #000;
+    }
+
+    .canvas-wrapper:hover {
+      transform: translateY(-2px);
+    }
+
+    #previewDesktop {
+      width: 100%;
+      max-width: 620px;
+      aspect-ratio: 16 / 9;
+      display: block;
+    }
+
+    #previewMobile {
+      width: 140px;
+      aspect-ratio: 1290 / 2796;
+      display: block;
+    }
+
+    @media (max-width: 640px) {
+      #previewDesktop {
+        max-width: 100%;
+      }
+      #previewMobile {
+        width: 110px;
+      }
+    }
+
+    /* ── Sidebar Controls ── */
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      height: fit-content;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .control-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .slider-val {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* Style Pattern Grid */
+    .style-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .style-btn {
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .style-btn canvas {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .style-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      text-align: center;
+    }
+
+    .style-btn:hover {
+      border-color: var(--border-focus);
+    }
+
+    .style-btn.active {
+      border-color: var(--accent);
+      background: var(--bg-hover);
+    }
+
+    .style-btn.active .style-label {
+      color: var(--text);
+    }
+
+    /* Palettes Row */
+    .palette-row {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .palette-swatch {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+      padding: 0;
+    }
+
+    .palette-swatch:hover {
+      transform: scale(1.1);
+      border-color: var(--border-focus);
+    }
+
+    .palette-swatch.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    /* Invert / Light mode toggle inside panel */
+    .mode-toggle-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 9px 14px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: var(--transition);
+    }
+
+    .mode-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+
+    .mode-btn.active {
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+    }
+
+    .circle-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot-dark { background: #222; border: 1px solid #555; }
+    .dot-light { background: #eee; border: 1px solid #aaa; }
+
+    /* Custom range input */
+    .range-input {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
+    }
+
+    .range-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--text);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .range-input::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Toggle switch row */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: var(--border);
+      transition: var(--transition);
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--text);
+      transition: var(--transition);
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(18px);
+      background-color: #fff;
+    }
+
+    /* Action Buttons */
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: var(--transition);
+      text-decoration: none;
+    }
+
+    .btn-shuffle {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      letter-spacing: 0.5px;
+    }
+
+    .btn-shuffle:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-focus);
+    }
+
+    .export-zone {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-download-desktop {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    .btn-download-desktop:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .btn-download-mobile {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-download-mobile:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-focus);
+    }
+
+    .size-tip {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: -4px;
+      margin-bottom: 4px;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+      transition: var(--transition);
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast-icon {
+      color: #10b981;
+    }
+
+    /* Quick Tip Footer Bar */
+    .shortcut-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">WPR</div>
+      <span id="appTitle">WLLPR STUDIO</span>
+    </div>
+
+    <div class="header-actions">
+      <!-- Multilingual Dropdown Switcher (EN, HI, ES) -->
+      <div class="lang-dropdown-wrapper">
+        <button class="lang-select-btn" id="langSelectBtn" aria-label="Select Language">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <span id="currentLangLabel">English (EN)</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M6 9l6 6 6-6"></path>
+          </svg>
+        </button>
+        <div class="lang-menu" id="langMenu">
+          <button class="lang-opt active" data-lang="en">English (EN)</button>
+          <button class="lang-opt" data-lang="es">Español (ES)</button>
+          <button class="lang-opt" data-lang="hi">हिन्दी (HI)</button>
+        </div>
+      </div>
+
+      <!-- Theme Switcher (Dark / Light) -->
+      <div class="segmented-pill">
+        <button class="pill-btn active" id="btnThemeDark" title="Dark theme">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M7 1a6 6 0 1 0 0 12A4.5 4.5 0 0 1 7 1z"></path>
+          </svg>
+        </button>
+        <button class="pill-btn" id="btnThemeLight" title="Light theme">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="7" cy="7" r="3"></circle>
+            <path d="M7 1v1.5M7 12.5V14M1 7h1.5M12.5 7H14M2.8 2.8l1 1M10.2 10.2l1 1M2.8 11.2l1-1M10.2 3.8l1-1"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Workspace Container -->
+  <main>
+    <!-- Left Stage: Canvases -->
+    <div class="preview-stage">
+      <div class="preview-cluster">
+        <div class="preview-box">
+          <div class="preview-badge" id="lblDesktopPreview">Desktop 4K (16:9)</div>
+          <div class="canvas-wrapper">
+            <canvas id="previewDesktop" width="640" height="360"></canvas>
+          </div>
+        </div>
+        <div class="preview-box">
+          <div class="preview-badge" id="lblMobilePreview">iPhone (19.5:9)</div>
+          <div class="canvas-wrapper">
+            <canvas id="previewMobile" width="145" height="314"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size: 12px; color: var(--text-muted); display:flex; align-items:center; gap:8px;">
+        <span class="shortcut-pill">Spacebar</span>
+        <span id="lblShortcutTip">Press Space to randomize variation</span>
+      </div>
+    </div>
+
+    <!-- Right Controls Panel -->
+    <aside class="controls-panel">
+      <!-- Pattern Choice -->
+      <div class="control-group">
+        <div class="control-header">
+          <span class="control-title" id="lblPattern">Pattern</span>
+        </div>
+        <div class="style-grid" id="styleGrid"></div>
+      </div>
+
+      <!-- Palette Choice -->
+      <div class="control-group">
+        <div class="control-header">
+          <span class="control-title" id="lblPalette">Color Palette</span>
+          <span class="slider-val" id="selectedPaletteName">Charcoal</span>
+        </div>
+        <div class="palette-row" id="paletteRow"></div>
+      </div>
+
+      <!-- Mode Toggle (Dark / Invert) -->
+      <div class="control-group">
+        <div class="control-header">
+          <span class="control-title" id="lblMode">Shade</span>
+        </div>
+        <div class="mode-toggle-group">
+          <button class="mode-btn active" id="btnShadeDark">
+            <span class="circle-dot dot-dark"></span>
+            <span id="lblModeDark">Dark</span>
+          </button>
+          <button class="mode-btn" id="btnShadeLight">
+            <span class="circle-dot dot-light"></span>
+            <span id="lblModeLight">Light</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Density / Wave Frequency Adjustment -->
+      <div class="control-group">
+        <div class="control-header">
+          <span class="control-title" id="lblDensity">Complexity & Scale</span>
+          <span class="slider-val" id="densityVal">1.0x</span>
+        </div>
+        <input type="range" min="0.5" max="2.0" step="0.1" value="1.0" class="range-input" id="scaleSlider">
+      </div>
+
+      <!-- Clock Overlay Toggle -->
+      <div class="control-group">
+        <label class="toggle-row">
+          <span id="lblShowClock">Show Clock & Date Preview</span>
+          <div class="switch">
+            <input type="checkbox" id="chkClock" checked>
+            <span class="slider"></span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Variation / Shuffle Button -->
+      <div class="control-group">
+        <button class="btn-action btn-shuffle" id="btnShuffle">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span id="btnShuffleText">GENERATE VARIATION</span>
+        </button>
+      </div>
+
+      <!-- Export Buttons -->
+      <div class="export-zone">
+        <button class="btn-action btn-download-desktop" id="btnExportDesktop">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="12" height="9" rx="1"></rect>
+            <path d="M5 15h6M8 12v3"></path>
+          </svg>
+          <span id="btnExportDesktopText">Download Desktop</span>
+        </button>
+        <div class="size-tip">Ultra HD 4K (3840 × 2160)</div>
+
+        <button class="btn-action btn-download-mobile" id="btnExportMobile">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="1" width="8" height="14" rx="2"></rect>
+            <path d="M7.5 12.5h1"></path>
+          </svg>
+          <span id="btnExportMobileText">Download Mobile</span>
+        </button>
+        <div class="size-tip">Hi-Res Phone (1290 × 2796)</div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Download Toast -->
+  <div class="toast" id="toast">
+    <svg class="toast-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 6L9 17l-5-5"></path>
+    </svg>
+    <span id="toastMsg">Wallpaper downloaded successfully!</span>
+  </div>
+
+  <!-- Embedded Logic: Mathematical Renderer & Multilingual Controller -->
+  <script>
+    /* =====================================================================
+       1. MULTILINGUAL TRANSLATION DICTIONARY
+       ===================================================================== */
+    const I18N = {
+      en: {
+        appTitle: "WLLPR STUDIO",
+        desktopPreview: "Desktop 4K (16:9)",
+        mobilePreview: "iPhone (19.5:9)",
+        shortcutTip: "Press Space to randomize variation",
+        pattern: "Pattern",
+        palette: "Color Palette",
+        shade: "Shade",
+        dark: "Dark",
+        light: "Light",
+        density: "Complexity & Scale",
+        showClock: "Show Clock & Date Preview",
+        generate: "GENERATE VARIATION",
+        downloadDesktop: "Download Desktop (4K)",
+        downloadMobile: "Download Mobile (Hi-Res)",
+        downloadSuccess: "Wallpaper downloaded successfully!",
+        patterns: {
+          'flowing-hills': "Hills",
+          'smooth-wave': "Wave",
+          'sand-dunes': "Dunes",
+          'mountains': "Mountains",
+          'concentric-arcs': "Arcs",
+          'paths': "Contours"
+        },
+        palettes: {
+          'Charcoal': "Charcoal",
+          'Stone': "Stone",
+          'Blue': "Azure Blue",
+          'Sunrise': "Sunrise",
+          'Fire': "Fire",
+          'Purple': "Cyber Purple",
+          'Toxic Glow': "Toxic Glow",
+          'Arctic Winter': "Arctic Winter",
+          'Neon Horizon': "Neon Horizon",
+          'Solar Flare': "Solar Flare",
+          'Deep Forest': "Deep Forest",
+          'Cosmic Blush Nebula': "Cosmic Blush",
+          'Ocean Depths': "Ocean Depths",
+          'Blood Moon': "Blood Moon"
+        },
+        days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+        months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+        dateFmt: (d, day, month, date) => `${day}, ${month} ${date}`
+      },
+      es: {
+        appTitle: "WLLPR ESTUDIO",
+        desktopPreview: "Escritorio 4K (16:9)",
+        mobilePreview: "Móvil / iPhone (19.5:9)",
+        shortcutTip: "Presiona Espacio para variar el diseño",
+        pattern: "Patrón",
+        palette: "Paleta de Color",
+        shade: "Tono",
+        dark: "Oscuro",
+        light: "Claro",
+        density: "Complejidad y Escala",
+        showClock: "Mostrar Reloj y Fecha",
+        generate: "GENERAR VARIACIÓN",
+        downloadDesktop: "Descargar Escritorio (4K)",
+        downloadMobile: "Descargar Móvil",
+        downloadSuccess: "¡Fondo de pantalla descargado con éxito!",
+        patterns: {
+          'flowing-hills': "Colinas",
+          'smooth-wave': "Ondas",
+          'sand-dunes': "Dunas",
+          'mountains': "Montañas",
+          'concentric-arcs': "Arcos",
+          'paths': "Senderos"
+        },
+        palettes: {
+          'Charcoal': "Carbón",
+          'Stone': "Piedra",
+          'Blue': "Azul Océano",
+          'Sunrise': "Amanecer",
+          'Fire': "Fuego",
+          'Purple': "Púrpura",
+          'Toxic Glow': "Brillo Tóxico",
+          'Arctic Winter': "Invierno Ártico",
+          'Neon Horizon': "Horizonte Neón",
+          'Solar Flare': "Llamarada Solar",
+          'Deep Forest': "Bosque Profundo",
+          'Cosmic Blush Nebula': "Nebulosa Rosa",
+          'Ocean Depths': "Profundidades",
+          'Blood Moon': "Luna de Sangre"
+        },
+        days: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+        months: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+        dateFmt: (d, day, month, date) => `${day}, ${date} de ${month}`
+      },
+      hi: {
+        appTitle: "WLLPR स्टूडियो",
+        desktopPreview: "डेस्कटॉप 4K (16:9)",
+        mobilePreview: "मोबाइल (19.5:9)",
+        shortcutTip: "नई शैली के लिए स्पेस दबाएं",
+        pattern: "पैटर्न",
+        palette: "रंग पैलेट",
+        shade: "शेड",
+        dark: "डार्क",
+        light: "लाइट",
+        density: "जटिलता और पैमाना",
+        showClock: "घड़ी और तारीख पूर्वावलोकन दिखाएं",
+        generate: "नया रूप बनाएं",
+        downloadDesktop: "डेस्कटॉप 4K डाउनलोड करें",
+        downloadMobile: "मोबाइल वॉलपेपर डाउनलोड करें",
+        downloadSuccess: "वॉलपेपर सफलतापूर्वक डाउनलोड हुआ!",
+        patterns: {
+          'flowing-hills': "पहाड़ियां",
+          'smooth-wave': "लहरें",
+          'sand-dunes': "रेत के टीले",
+          'mountains': "पर्वत",
+          'concentric-arcs': "चापाकार",
+          'paths': "कंटूर रेखाएं"
+        },
+        palettes: {
+          'Charcoal': "चारकोल",
+          'Stone': "पत्थर",
+          'Blue': "नीला",
+          'Sunrise': "सूर्योदय",
+          'Fire': "अग्नि",
+          'Purple': "बैंगनी",
+          'Toxic Glow': "टॉक्सिक ग्लो",
+          'Arctic Winter': "आर्कटिक शीत",
+          'Neon Horizon': "नियॉन होराइजन",
+          'Solar Flare': "सौर ज्वाला",
+          'Deep Forest': "गहरा जंगल",
+          'Cosmic Blush Nebula': "नेबुला",
+          'Ocean Depths': "गहरा समुद्र",
+          'Blood Moon': "रक्त चंद्र"
+        },
+        days: ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'],
+        months: ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'],
+        dateFmt: (d, day, month, date) => `${day}, ${date} ${month}`
+      }
+    };
+
+    /* =====================================================================
+       2. COLOR PALETTES & PATTERN DATA
+       ===================================================================== */
+    const DESKTOP_W = 3840, DESKTOP_H = 2160;
+    const MOBILE_W = 1290, MOBILE_H = 2796;
+
+    const PALETTES = [
+      { name: 'Charcoal', colors: ['#000000','#141414','#2a2a2a','#404040','#595959','#737373','#8c8c8c','#b3b3b3','#d9d9d9','#ffffff'] },
+      { name: 'Stone',    colors: ['#1a1714','#2c2825','#3e3a35','#534e47','#6b655c','#857d72','#9f9688','#b8b0a3','#d1c9bd','#ece6dc'] },
+      { name: 'Blue',     colors: ['#01052b','#04137a','#0825c7','#0d39ff','#1552ff','#2f73ff','#58a3ff','#7dc3ff','#aedfff','#edf8ff'] },
+      { name: 'Sunrise',  colors: ['#031c35','#05284a','#063862','#0b4b7a','#ff5b40','#ff7240','#ff9438','#ffb33f','#ffd064','#fff0c8'] },
+      { name: 'Fire',     colors: ['#1a0000','#450000','#7a0000','#b30000','#e63900','#ff6a00','#ff9500','#ffb700','#ffd166','#fff1c2'] },
+      { name: 'Purple',   colors: ['#100014','#22002e','#3f005a','#5c0085','#7a00b3','#9b1fff','#b84dff','#cf88ff','#e4c2ff','#f7ebff'] },
+      { name: 'Toxic Glow', colors: ['#050807','#0c1410','#14221a','#1e3325','#2a4d2e','#3f6b2f','#5f8a2c','#86b326','#b9e83f','#f6ffe0'] },
+      { name: 'Arctic Winter', colors: ['#081018','#112131','#1d3348','#33516a','#55768f','#7d9eb5','#a7c2d3','#cfe0ea','#e8f0f5','#ffffff']},
+      { name: 'Neon Horizon', colors: ['#13051a','#290d3a','#3c1259','#3b2285','#2b42b0','#1d6cd4','#2ca1e8','#59cef2','#94f2f7','#e0fbfd'] },
+      { name: 'Solar Flare', colors: ['#1f0505','#3a0d0d','#611111','#871c26','#ab3037','#cb4f41','#e6744a','#f79d5c','#fcc579','#fdf2a6'] },
+      { name: 'Deep Forest', colors: ['#051214','#0b2426','#123a39','#18524c','#226b5d','#32856c','#49a07a','#68ba89','#91d49d','#c3ebd0'] },
+      { name: 'Cosmic Blush Nebula', colors: ['#120414','#260824','#3f0f3d','#5c1a5c','#7a2a7a','#a33a86','#c85b98','#e98fb6','#ffd0dd','#fff1f6'] },
+      { name: 'Ocean Depths', colors: ['#020c1b','#0a1628','#0f2847','#0d3b6e','#0e5a8a','#1a7fa0','#30a5b8','#5eccc5','#96ead8','#d4fff2'] },
+      { name: 'Blood Moon', colors: ['#000000','#0f0000','#1f0000','#330000','#4d0000','#6b0000','#880000','#a50000','#c40000','#e60000'] }
+    ];
+
+    const PATTERNS = ['flowing-hills', 'smooth-wave', 'sand-dunes', 'mountains', 'concentric-arcs', 'paths'];
+
+    /* State */
+    let currentPattern = 0;
+    let currentPalette = 0;
+    let seed = Math.floor(Math.random() * 100000);
+    let inverted = false;
+    let currentLang = 'en';
+    let userScale = 1.0;
+    let showClock = true;
+
+    /* =====================================================================
+       3. MATHEMATICAL ALGORITHMS & RENDERING ENGINE
+       ===================================================================== */
+    let _seed = 0;
+
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      }
+    }
+
+    function noise(x) {
+      const ix = Math.floor(x);
+      const fx = x - ix;
+      const t = fx * fx * (3 - 2 * fx);
+      const seedA = Math.sin(ix * 127.1 + _seed * 0.01) * 43758.5453;
+      const seedB = Math.sin((ix + 1) * 127.1 + _seed * 0.01) * 43758.5453;
+      const a = seedA - Math.floor(seedA);
+      const b = seedB - Math.floor(seedB);
+      return a + (b - a) * t;
+    }
+
+    function fbm(x, octaves = 4) {
+      let val = 0, amp = 0.5, freq = 1;
+      for (let i = 0; i < octaves; i++) {
+        val += amp * noise(x * freq);
+        amp *= 0.5;
+        freq *= 2.1;
+      }
+      return val;
+    }
+
+    function hash2(ix, iy) {
+      const h = Math.sin(ix * 127.1 + iy * 311.7 + _seed * 0.013) * 43758.5453;
+      return h - Math.floor(h);
+    }
+
+    function noise2(x, y) {
+      const ix = Math.floor(x), iy = Math.floor(y);
+      const fx = x - ix, fy = y - iy;
+      const ux = fx * fx * (3 - 2 * fx);
+      const uy = fy * fy * (3 - 2 * fy);
+      const a = hash2(ix, iy),     b = hash2(ix + 1, iy);
+      const c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
+      return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy;
+    }
+
+    function fbm2(x, y, octaves = 5) {
+      let val = 0, amp = 0.5, freq = 1;
+      for (let i = 0; i < octaves; i++) {
+        val += amp * noise2(x * freq, y * freq);
+        amp *= 0.5;
+        freq *= 2.03;
+      }
+      return val;
+    }
+
+    function lerpColor(c1, c2, t) {
+      const r1 = parseInt(c1.slice(1,3),16), g1 = parseInt(c1.slice(3,5),16), b1 = parseInt(c1.slice(5,7),16);
+      const r2 = parseInt(c2.slice(1,3),16), g2 = parseInt(c2.slice(3,5),16), b2 = parseInt(c2.slice(5,7),16);
+      return `rgb(${Math.round(r1+(r2-r1)*t)},${Math.round(g1+(g2-g1)*t)},${Math.round(b1+(b2-b1)*t)})`;
+    }
+
+    function getColor(palette, t, inv) {
+      const colors = PALETTES[palette].colors;
+      const ct = inv ? 1 - t : t;
+      const idx = ct * (colors.length - 1);
+      const i = Math.floor(idx);
+      const f = idx - i;
+      if (i >= colors.length - 1) return colors[colors.length - 1];
+      if (i < 0) return colors[0];
+      return lerpColor(colors[i], colors[i+1], f);
+    }
+
+    function getBgColor(palette, inv) {
+      const colors = PALETTES[palette].colors;
+      return inv ? colors[colors.length - 1] : colors[0];
+    }
+
+    function drawPineTree(ctx, x, bottomY, width, height, rng) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x - width * 0.08, bottomY);
+      ctx.lineTo(x - width * 0.08, bottomY - height * 0.15);
+      ctx.lineTo(x + width * 0.08, bottomY - height * 0.15);
+      ctx.lineTo(x + width * 0.08, bottomY);
+      ctx.fill();
+
+      const segments = 24;
+      for (let i = 0; i < segments; i++) {
+        const t = i / (segments - 1);
+        const segHeight = height;
+        const topY = bottomY - height + (segHeight * t * 0.45);
+        const currBottomY = bottomY - height + (segHeight * (t + 0.22));
+        const currWidth = width * (0.25 + t * 0.75);
+        ctx.beginPath();
+        ctx.moveTo(x, topY);
+        const jitterL = (rng() - 0.5) * (width * 0.08);
+        const jitterR = (rng() - 0.5) * (width * 0.08);
+        ctx.lineTo(x - currWidth / 2 + jitterL, currBottomY);
+        ctx.lineTo(x + currWidth / 2 + jitterR, currBottomY);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawFlowingHills(ctx, w, h, pal, rng, inv, scale) {
+      const layers = 5;
+      const isDesktop = w > h;
+      for (let i = 0; i < layers; i++) {
+        const t = (i + 1) / layers;
+        const spacingFactor = isDesktop ? 0.40 : 0.33;
+        const baseY = h * (0.5 + (i / layers) * spacingFactor);
+        ctx.fillStyle = getColor(pal, t * 0.85 + 0.1, inv);
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        let ridgePoints = [];
+        const geometryStep = Math.max(3, Math.round(w / (140 * scale)));
+        for (let x = 0; x <= w + geometryStep; x += geometryStep) {
+          const nx = x / w;
+          let y;
+          if (i < 2) {
+            const mountainAmplitude = (isDesktop ? 0.32 : 0.12) * scale;
+            const mountainFreq = (isDesktop ? 4.5 : 2.5) * scale;
+            y = baseY + fbm(nx * mountainFreq + i * 4.5, 9) * h * mountainAmplitude - (isDesktop ? h * 0.12 : h * 0.05);
+          } else {
+            const hillAmplitude = (isDesktop ? 0.16 : 0.06) * scale;
+            const hillFreq = (isDesktop ? 2.5 : 1.5) * scale;
+            y = baseY + fbm(nx * hillFreq + i * 2.1, 7) * h * hillAmplitude - (isDesktop ? h * 0.01 : h * 0.02);
+          }
+          ridgePoints.push({ x, y });
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fill();
+
+        if (i >= 1) {
+          let baseTreeWidth, baseTreeHeight;
+          if (isDesktop) {
+            baseTreeWidth = h * (0.045 + i * 0.004) * Math.min(scale, 1.2);
+            baseTreeHeight = baseTreeWidth * (1 + rng() * 0.2);
+          } else {
+            baseTreeWidth = w * (0.12 + i * 0.004) * Math.min(scale, 1.2);
+            baseTreeHeight = baseTreeWidth * (1 + rng() * 0.2);
+          }
+          const stepX = baseTreeWidth * 0.35;
+          for (let x = 0; x <= w; x += stepX) {
+            const pct = x / w;
+            const ptIndex = Math.floor(pct * (ridgePoints.length - 1));
+            const pt = ridgePoints[ptIndex] || ridgePoints[ridgePoints.length - 1];
+            const rowsDown = isDesktop
+              ? (i === 1 ? 3 : 5 + (layers - i))
+              : (i === 1 ? 1 : 2 + (layers - i));
+            for (let row = 0; row < rowsDown; row++) {
+              const yOffset = row * (baseTreeHeight * 0.22);
+              const currentBottomY = pt.y + yOffset;
+              if (currentBottomY > h + 20) continue;
+              const sc = isDesktop ? (0.65 + rng() * 1.1) : (0.8 + rng() * 0.4);
+              const currentWidth = baseTreeWidth * (isDesktop ? Math.min(sc, 1.1) : sc);
+              const currentHeight = baseTreeHeight * sc;
+              const currentX = x + (rng() - 0.5) * (stepX * 0.5);
+              drawPineTree(ctx, currentX, currentBottomY, currentWidth, currentHeight, rng);
+            }
+          }
+        }
+      }
+    }
+
+    function drawSmoothWave(ctx, w, h, pal, rng, inv, scale) {
+      const layers = Math.round((8 + (rng() * 5 | 0)) * Math.min(scale, 1.4));
+      const centerX = w * (0.45 + rng() * 0.1);
+      const baseY = h * (0.75 + rng() * 0.08);
+      for (let i = layers; i >= 0; i--) {
+        const t = i / layers;
+        const spread = h * (0.8 + t * 1.8) * (1 / scale);
+        const peakH = h * (0.05 + t * 0.3) * scale;
+        const skew = rng() * 0.2 - 0.10;
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        ctx.lineTo(0, baseY + peakH * 0.5);
+        const steps = 140;
+        for (let s = 0; s <= steps; s++) {
+          const st = s / steps;
+          const x = st * w;
+          const dist = (x - centerX) / spread;
+          const bell = Math.exp(-dist * dist * 0.4);
+          const asymmetry = 1 + skew * dist;
+          const wave = bell * peakH * asymmetry;
+          const micro = fbm((x / h) * 2 * scale + i * 1.4, 3) * h * 0.008;
+          const y = baseY - wave + micro;
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = getColor(pal, 0.1 + (1 - t) * 0.8, inv);
+        ctx.fill();
+      }
+    }
+
+    function drawSandDunes(ctx, w, h, pal, rng, inv, scale) {
+      const layers = Math.round((7 + (rng() * 5 | 0)) * Math.min(scale, 1.3));
+      for (let i = 0; i < layers; i++) {
+        const t = (i + 1) / layers;
+        const baseY = h * (0.55 + t * 0.35);
+        const freq = (0.5 + rng() * 0.8) * scale;
+        const phase = rng() * 10;
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += 2) {
+          const nx = x / h;
+          const wave = Math.sin(nx * Math.PI * freq + phase) * h * 0.05 * scale;
+          const n = fbm(nx * 0.8 * scale + i * 2.1, 3) * h * 0.05;
+          const y = baseY + wave + n;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fillStyle = getColor(pal, t * 0.8 + 0.15, inv);
+        ctx.fill();
+      }
+    }
+
+    function drawMountains(ctx, w, h, pal, rng, inv, scale) {
+      const layers = Math.round((5 + (rng() * 3 | 0)) * Math.min(scale, 1.3));
+      for (let i = 0; i < layers; i++) {
+        const t = (i + 1) / layers;
+        const baseY = h * (0.55 + t * 0.35);
+        const peakCount = Math.round((2 + (rng() * 2 | 0)) * scale);
+        const offset = rng() * 50;
+        ctx.beginPath();
+        ctx.moveTo(-2, h + 2);
+        const peaks = [];
+        for (let p = 0; p < peakCount; p++) {
+          peaks.push({
+            cx: w * (0.1 + rng() * 0.8),
+            peakH: h * (0.1 + rng() * 0.15) * (1 - i * 0.08) * scale,
+            width: h * (0.6 + rng() * 0.6) * (1 / scale),
+          });
+        }
+        for (let x = -2; x <= w + 2; x += 2) {
+          let y = baseY;
+          for (const p of peaks) {
+            const dist = Math.abs(x - p.cx);
+            if (dist < p.width) {
+              const rise = (1 - dist / p.width);
+              const sharpness = 1.3 + rng() * 0.3;
+              const peakY = Math.pow(rise, sharpness) * p.peakH;
+              y = Math.min(y, baseY - peakY);
+            }
+          }
+          const micro = fbm((x / h) * 1.5 * scale + i * 2.3 + offset, 3) * h * 0.008;
+          ctx.lineTo(x, y + micro);
+        }
+        ctx.lineTo(w + 2, h + 2);
+        ctx.closePath();
+        ctx.fillStyle = getColor(pal, t * 0.8 + 0.12, inv);
+        ctx.fill();
+      }
+    }
+
+    function drawConcentricArcs(ctx, w, h, pal, rng, inv, scale) {
+      const maxR = h * 1.0 * scale;
+      const originX = w * (0.45 + rng() * 0.1);
+      const originY = h * 1.5;
+      const rings = Math.round((14 + (rng() * 6 | 0)) * scale);
+      for (let i = rings; i >= 0; i--) {
+        const t = i / rings;
+        const r = maxR * t;
+        ctx.beginPath();
+        ctx.arc(originX, originY, Math.max(0, r), 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fillStyle = getColor(pal, 0.1 + (1 - t) * 0.8, inv);
+        ctx.fill();
+      }
+    }
+
+    function drawPaths(ctx, w, h, pal, rng, inv, scale) {
+      const isDesktop = w > h;
+      const cols = Math.round((isDesktop ? 200 : 90) * scale);
+      const rows = Math.round(cols * h / w);
+      const cw = w / cols, ch = h / rows;
+
+      const scaleX = (isDesktop ? 4.2 : 2.6) * scale;
+      const ox = rng() * 100, oy = rng() * 100;
+      const field = new Float32Array((cols + 1) * (rows + 1));
+      let min = Infinity, max = -Infinity;
+      for (let j = 0; j <= rows; j++) {
+        for (let i = 0; i <= cols; i++) {
+          const v = fbm2((i / cols) * scaleX + ox, (j / rows) * (isDesktop ? 2.6 : 5.0) * scale + oy, 5);
+          field[j * (cols + 1) + i] = v;
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      }
+
+      const levels = Math.round((isDesktop ? 10 : 7) * scale);
+      ctx.lineWidth = Math.max(1, (w / 2800) * scale);
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      for (let L = 1; L < levels; L++) {
+        const t = L / levels;
+        const iso = min + (max - min) * t;
+        ctx.strokeStyle = getColor(pal, 0.62 + t * 0.33, inv);
+        ctx.beginPath();
+        for (let j = 0; j < rows; j++) {
+          for (let i = 0; i < cols; i++) {
+            const x0 = i * cw, y0 = j * ch, x1 = x0 + cw, y1 = y0 + ch;
+            const tl = field[j * (cols + 1) + i];
+            const tr = field[j * (cols + 1) + i + 1];
+            const br = field[(j + 1) * (cols + 1) + i + 1];
+            const bl = field[(j + 1) * (cols + 1) + i];
+
+            let state = 0;
+            if (tl > iso) state |= 8;
+            if (tr > iso) state |= 4;
+            if (br > iso) state |= 2;
+            if (bl > iso) state |= 1;
+            if (state === 0 || state === 15) continue;
+
+            const top    = () => ({ x: x0 + cw * (iso - tl) / (tr - tl), y: y0 });
+            const bottom = () => ({ x: x0 + cw * (iso - bl) / (br - bl), y: y1 });
+            const left   = () => ({ x: x0, y: y0 + ch * (iso - tl) / (bl - tl) });
+            const right  = () => ({ x: x1, y: y0 + ch * (iso - tr) / (br - tr) });
+
+            let segs = [];
+            switch (state) {
+              case 1: case 14: segs = [left(), bottom()]; break;
+              case 2: case 13: segs = [bottom(), right()]; break;
+              case 3: case 12: segs = [left(), right()]; break;
+              case 4: case 11: segs = [top(), right()]; break;
+              case 6: case 9:  segs = [top(), bottom()]; break;
+              case 7: case 8:  segs = [left(), top()]; break;
+              case 5:  segs = [left(), top(), bottom(), right()]; break;
+              case 10: segs = [left(), bottom(), top(), right()]; break;
+            }
+            for (let s = 0; s < segs.length; s += 2) {
+              ctx.moveTo(segs[s].x, segs[s].y);
+              ctx.lineTo(segs[s + 1].x, segs[s + 1].y);
+            }
+          }
+        }
+        ctx.stroke();
+      }
+    }
+
+    function drawClockOverlay(ctx, w, h, type, paletteIdx, inv) {
+      if (!showClock) return;
+
+      const bg = getBgColor(paletteIdx, inv);
+      const r = parseInt(bg.slice(1,3), 16), g = parseInt(bg.slice(3,5), 16), b = parseInt(bg.slice(5,7), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      ctx.fillStyle = brightness > 125 ? 'rgba(0, 0, 0, 0.75)' : 'rgba(255, 255, 255, 0.9)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      const time = `${hours}:${mins}`;
+
+      const t = I18N[currentLang];
+      const day = t.days[now.getDay()];
+      const month = t.months[now.getMonth()];
+      const dateStr = t.dateFmt(now, day, month, now.getDate());
+
+      if (type === 'desktop') {
+        ctx.font = '300 11px var(--font)';
+        ctx.fillText(dateStr, w / 2, h * 0.20);
+        ctx.font = '600 42px var(--font)';
+        ctx.fillText(time, w / 2, h * 0.30);
+      } else if (type === 'mobile') {
+        ctx.font = '500 7px var(--font)';
+        ctx.fillText(dateStr.toUpperCase(), w / 2, h * 0.15);
+        ctx.font = '700 28px var(--font)';
+        ctx.fillText(time, w / 2, h * 0.23);
+      }
+    }
+
+    function drawPattern(ctx, w, h, patternIdx, paletteIdx, s, inv = false, scale = 1.0) {
+      _seed = s;
+      const rng = mulberry32(s);
+      ctx.fillStyle = getBgColor(paletteIdx, inv);
+      ctx.fillRect(0, 0, w, h);
+
+      switch(PATTERNS[patternIdx]) {
+        case 'flowing-hills':   drawFlowingHills(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'smooth-wave':     drawSmoothWave(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'sand-dunes':      drawSandDunes(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'mountains':       drawMountains(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'concentric-arcs': drawConcentricArcs(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'paths':           drawPaths(ctx, w, h, paletteIdx, rng, inv, scale); break;
+      }
+    }
+
+    /* =====================================================================
+       4. UI RENDERING & EVENT CONTROLLERS
+       ===================================================================== */
+    function renderMain() {
+      const dCanvas = document.getElementById('previewDesktop');
+      const mCanvas = document.getElementById('previewMobile');
+      const dCtx = dCanvas.getContext('2d');
+      const mCtx = mCanvas.getContext('2d');
+
+      drawPattern(dCtx, dCanvas.width, dCanvas.height, currentPattern, currentPalette, seed, inverted, userScale);
+      drawPattern(mCtx, mCanvas.width, mCanvas.height, currentPattern, currentPalette, seed, inverted, userScale);
+
+      drawClockOverlay(dCtx, dCanvas.width, dCanvas.height, 'desktop', currentPalette, inverted);
+      drawClockOverlay(mCtx, mCanvas.width, mCanvas.height, 'mobile', currentPalette, inverted);
+
+      // Update palette title
+      const pName = PALETTES[currentPalette].name;
+      document.getElementById('selectedPaletteName').textContent = I18N[currentLang].palettes[pName] || pName;
+    }
+
+    function initStyleGrid() {
+      const grid = document.getElementById('styleGrid');
+      grid.innerHTML = '';
+      PATTERNS.forEach((patKey, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'style-btn' + (i === currentPattern ? ' active' : '');
+        btn.setAttribute('data-index', i);
+
+        const c = document.createElement('canvas');
+        c.width = 120;
+        c.height = 75;
+        btn.appendChild(c);
+
+        const lbl = document.createElement('span');
+        lbl.className = 'style-label';
+        lbl.textContent = I18N[currentLang].patterns[patKey];
+        btn.appendChild(lbl);
+
+        drawPattern(c.getContext('2d'), 120, 75, i, 0, 42, false, 1.0);
+
+        btn.onclick = () => {
+          currentPattern = i;
+          document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderMain();
+        };
+
+        grid.appendChild(btn);
+      });
+    }
+
+    function initPaletteRow() {
+      const row = document.getElementById('paletteRow');
+      row.innerHTML = '';
+      PALETTES.forEach((pal, i) => {
+        const swatch = document.createElement('button');
+        swatch.className = 'palette-swatch' + (i === currentPalette ? ' active' : '');
+        swatch.title = I18N[currentLang].palettes[pal.name] || pal.name;
+
+        // Gradient swatch preview
+        const c1 = pal.colors[Math.floor(pal.colors.length * 0.2)];
+        const c2 = pal.colors[Math.floor(pal.colors.length * 0.7)];
+        swatch.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+
+        swatch.onclick = () => {
+          currentPalette = i;
+          document.querySelectorAll('.palette-swatch').forEach(b => b.classList.remove('active'));
+          swatch.classList.add('active');
+          renderMain();
+        };
+
+        row.appendChild(swatch);
+      });
+    }
+
+    function updateLanguage(lang) {
+      currentLang = lang;
+      const dict = I18N[lang];
+
+      // Update Labels
+      document.getElementById('appTitle').textContent = dict.appTitle;
+      document.getElementById('lblDesktopPreview').textContent = dict.desktopPreview;
+      document.getElementById('lblMobilePreview').textContent = dict.mobilePreview;
+      document.getElementById('lblShortcutTip').textContent = dict.shortcutTip;
+      document.getElementById('lblPattern').textContent = dict.pattern;
+      document.getElementById('lblPalette').textContent = dict.palette;
+      document.getElementById('lblMode').textContent = dict.shade;
+      document.getElementById('lblModeDark').textContent = dict.dark;
+      document.getElementById('lblModeLight').textContent = dict.light;
+      document.getElementById('lblDensity').textContent = dict.density;
+      document.getElementById('lblShowClock').textContent = dict.showClock;
+      document.getElementById('btnShuffleText').textContent = dict.generate;
+      document.getElementById('btnExportDesktopText').textContent = dict.downloadDesktop;
+      document.getElementById('btnExportMobileText').textContent = dict.downloadMobile;
+      document.getElementById('toastMsg').textContent = dict.downloadSuccess;
+
+      // Update Header Button Label
+      const langNames = { en: 'English (EN)', es: 'Español (ES)', hi: 'हिन्दी (HI)' };
+      document.getElementById('currentLangLabel').textContent = langNames[lang];
+
+      // Update Style Button labels
+      document.querySelectorAll('.style-btn').forEach((b, idx) => {
+        const lbl = b.querySelector('.style-label');
+        if (lbl) lbl.textContent = dict.patterns[PATTERNS[idx]];
+      });
+
+      // Update Palette Tooltips
+      document.querySelectorAll('.palette-swatch').forEach((sw, idx) => {
+        sw.title = dict.palettes[PALETTES[idx].name] || PALETTES[idx].name;
+      });
+
+      // Active state in dropdown
+      document.querySelectorAll('.lang-opt').forEach(opt => {
+        opt.classList.toggle('active', opt.dataset.lang === lang);
+      });
+
+      renderMain();
+    }
+
+    /* =====================================================================
+       5. EXPORT & DOWNLOAD SYSTEM
+       ===================================================================== */
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      if (msg) document.getElementById('toastMsg').textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2600);
+    }
+
+    async function exportAndSave(width, height, filename) {
+      const offscreen = document.createElement('canvas');
+      offscreen.width = width;
+      offscreen.height = height;
+      const ctx = offscreen.getContext('2d');
+
+      // Draw high resolution version
+      drawPattern(ctx, width, height, currentPattern, currentPalette, seed, inverted, userScale);
+
+      offscreen.toBlob(blob => {
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(I18N[currentLang].downloadSuccess);
+      }, 'image/png');
+    }
+
+    /* =====================================================================
+       6. SETUP EVENT LISTENERS & INITIALIZATION
+       ===================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      initStyleGrid();
+      initPaletteRow();
+      renderMain();
+
+      // Language Dropdown toggle
+      const langBtn = document.getElementById('langSelectBtn');
+      const langMenu = document.getElementById('langMenu');
+
+      langBtn.onclick = (e) => {
+        e.stopPropagation();
+        langMenu.classList.toggle('open');
+      };
+
+      document.addEventListener('click', () => {
+        langMenu.classList.remove('open');
+      });
+
+      document.querySelectorAll('.lang-opt').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          updateLanguage(btn.dataset.lang);
+          langMenu.classList.remove('open');
+        };
+      });
+
+      // Theme toggle buttons (Dark / Light UI Theme)
+      const btnDark = document.getElementById('btnThemeDark');
+      const btnLight = document.getElementById('btnThemeLight');
+
+      btnDark.onclick = () => {
+        document.body.classList.remove('light');
+        btnDark.classList.add('active');
+        btnLight.classList.remove('active');
+      };
+
+      btnLight.onclick = () => {
+        document.body.classList.add('light');
+        btnLight.classList.add('active');
+        btnDark.classList.remove('active');
+      };
+
+      // Shade Mode Buttons (Wallpaper Dark / Light inversion)
+      const btnShadeDark = document.getElementById('btnShadeDark');
+      const btnShadeLight = document.getElementById('btnShadeLight');
+
+      btnShadeDark.onclick = () => {
+        inverted = false;
+        btnShadeDark.classList.add('active');
+        btnShadeLight.classList.remove('active');
+        renderMain();
+      };
+
+      btnShadeLight.onclick = () => {
+        inverted = true;
+        btnShadeLight.classList.add('active');
+        btnShadeDark.classList.remove('active');
+        renderMain();
+      };
+
+      // Complexity scale slider
+      const slider = document.getElementById('scaleSlider');
+      slider.oninput = (e) => {
+        userScale = parseFloat(e.target.value);
+        document.getElementById('densityVal').textContent = `${userScale.toFixed(1)}x`;
+        renderMain();
+      };
+
+      // Clock preview checkbox
+      document.getElementById('chkClock').onchange = (e) => {
+        showClock = e.target.checked;
+        renderMain();
+      };
+
+      // Shuffle / Random variation
+      const shuffle = () => {
+        seed = Math.floor(Math.random() * 100000);
+        renderMain();
+      };
+
+      document.getElementById('btnShuffle').onclick = shuffle;
+
+      // Keyboard Shortcut: Spacebar to randomize
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+          e.preventDefault();
+          shuffle();
+        }
+      });
+
+      // Downloads
+      document.getElementById('btnExportDesktop').onclick = () => {
+        exportAndSave(DESKTOP_W, DESKTOP_H, `wllpr-desktop-${PATTERNS[currentPattern]}-4k.png`);
+      };
+
+      document.getElementById('btnExportMobile').onclick = () => {
+        exportAndSave(MOBILE_W, MOBILE_H, `wllpr-mobile-${PATTERNS[currentPattern]}.png`);
+      };
+    });
+  </script>
+</body>
+</html>

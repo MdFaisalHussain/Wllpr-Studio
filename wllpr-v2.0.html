@@ -1,0 +1,2317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WLLPR Studio — Procedural Wallpaper Generator</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23111'/><text x='16' y='21' text-anchor='middle' font-family='system-ui,sans-serif' font-size='13' font-weight='800' fill='white'>WPR</text></svg>">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :root {
+      --bg-canvas: #090a0f;
+      --bg-panel: rgba(18, 20, 29, 0.82);
+      --bg-card: rgba(26, 29, 42, 0.7);
+      --bg-hover: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.1);
+      --border-focus: rgba(255, 255, 255, 0.25);
+      --text: #f1f3f9;
+      --text-muted: #8e95aa;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.35);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-full: 9999px;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body.light {
+      --bg-canvas: #e9ecf3;
+      --bg-panel: rgba(255, 255, 255, 0.85);
+      --bg-card: rgba(243, 245, 250, 0.85);
+      --bg-hover: rgba(0, 0, 0, 0.05);
+      --border: rgba(0, 0, 0, 0.09);
+      --border-focus: rgba(0, 0, 0, 0.22);
+      --text: #111420;
+      --text-muted: #636b83;
+      --accent: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.2);
+    }
+
+    body {
+      font-family: var(--font);
+      background-color: var(--bg-canvas);
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      position: relative;
+    }
+
+    /* ── Navigation Bar ── */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.8px;
+    }
+
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      background: var(--text);
+      color: var(--bg-canvas);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Dropdown UI */
+    .dropdown {
+      position: relative;
+    }
+
+    .dropdown-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius-full);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .dropdown-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-focus);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 140px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.35);
+      z-index: 250;
+    }
+
+    .dropdown-menu.active {
+      display: flex;
+    }
+
+    .dropdown-item {
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-weight: 500;
+      text-align: left;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition);
+    }
+
+    .dropdown-item:hover, .dropdown-item.active {
+      color: var(--text);
+      background: var(--bg-hover);
+    }
+
+    .theme-toggle-pill {
+      display: flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      padding: 3px;
+    }
+
+    .theme-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      width: 28px;
+      height: 26px;
+      border-radius: var(--radius-full);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .theme-btn.active {
+      background: var(--text);
+      color: var(--bg-canvas);
+    }
+
+    /* ── Main Stage (FIXED CENTERED PREVIEWS) ── */
+    #viewportStage {
+      position: fixed;
+      inset: 60px 0 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 24px;
+      z-index: 10;
+    }
+
+    .stage-cluster {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 24px;
+      width: 100%;
+      max-width: 1100px;
+      transition: transform 0.3s ease;
+    }
+
+    .preview-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .preview-caption {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .canvas-frame {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+      background: #000;
+      transition: var(--transition);
+    }
+
+    .canvas-frame:hover {
+      border-color: var(--border-focus);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    #previewDesktop {
+      width: 100%;
+      max-width: 580px;
+      aspect-ratio: 16 / 9;
+      display: block;
+    }
+
+    #previewMobile {
+      width: 140px;
+      aspect-ratio: 1290 / 2796;
+      display: block;
+    }
+
+    .stage-hint {
+      margin-top: 18px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .keycap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text);
+    }
+
+    /* ── MOVABLE / FLOATING CONTROLS PANEL ── */
+    #draggablePanel {
+      position: fixed;
+      top: 80px;
+      right: 28px;
+      width: 330px;
+      max-height: calc(100vh - 100px);
+      background: var(--bg-panel);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+      z-index: 90;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    }
+
+    #draggablePanel.collapsed {
+      max-height: 48px;
+      width: 240px;
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      cursor: grab;
+      user-select: none;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .panel-header:active {
+      cursor: grabbing;
+    }
+
+    .panel-drag-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .icon-mini-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .icon-mini-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+
+    .panel-body {
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .panel-body::-webkit-scrollbar {
+      width: 4px;
+    }
+    .panel-body::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .active-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: none;
+    }
+
+    /* Pattern Style Grid */
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      max-height: 185px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .pattern-item {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pattern-item canvas {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .pattern-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      text-align: center;
+    }
+
+    .pattern-item:hover {
+      border-color: var(--border-focus);
+    }
+
+    .pattern-item.active {
+      border-color: var(--accent);
+      background: var(--bg-hover);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .pattern-item.active .pattern-label {
+      color: var(--text);
+    }
+
+    /* Palette Selection */
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+
+    .palette-circle {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .palette-circle:hover {
+      transform: scale(1.12);
+      border-color: var(--border-focus);
+    }
+
+    .palette-circle.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent);
+      transform: scale(1.08);
+    }
+
+    .custom-palette-btn {
+      grid-column: span 7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px;
+      background: var(--bg-card);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .custom-palette-btn:hover {
+      color: var(--text);
+      border-color: var(--accent);
+      background: var(--bg-hover);
+    }
+
+    /* Shade Selector */
+    .shade-btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .shade-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .shade-btn:hover {
+      color: var(--text);
+      background: var(--bg-hover);
+    }
+
+    .shade-btn.active {
+      background: var(--text);
+      color: var(--bg-canvas);
+      border-color: var(--text);
+    }
+
+    .shade-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+    .shade-dot.dark { background: #111; border: 1px solid #444; }
+    .shade-dot.light { background: #eee; border: 1px solid #aaa; }
+
+    /* Slider & Switch Controls */
+    .range-bar {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 4px;
+      background: var(--border);
+      outline: none;
+    }
+
+    .range-bar::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--text);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transition: transform 0.15s ease;
+    }
+
+    .range-bar::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .toggle-track {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      background: var(--border);
+      border-radius: var(--radius-full);
+      transition: var(--transition);
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--text);
+      transition: var(--transition);
+    }
+
+    input:checked + .toggle-track {
+      background: var(--accent);
+    }
+
+    input:checked + .toggle-track .toggle-thumb {
+      transform: translateX(16px);
+      background: #fff;
+    }
+
+    /* Buttons */
+    .btn-full {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: var(--radius-full);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      border: none;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-focus);
+    }
+
+    .btn-primary {
+      background: var(--text);
+      color: var(--bg-canvas);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    /* Mobile Sheet Toggle Bar */
+    #mobileSheetToggle {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg-canvas);
+      padding: 12px 24px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 700;
+      gap: 8px;
+      z-index: 95;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border: none;
+      cursor: pointer;
+    }
+
+    /* ── MODALS (Custom Colors & Export Options) ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: none;
+      place-items: center;
+      z-index: 300;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open {
+      display: grid;
+    }
+
+    .modal-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+      overflow: hidden;
+      animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalPop {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .color-picker-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .color-picker-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .native-color-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .color-swatch-preview {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .custom-gradient-preview {
+      height: 40px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .select-input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: var(--font);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .select-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    /* Toast Notification */
+    #toastNotification {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+      transition: var(--transition);
+      z-index: 400;
+    }
+
+    #toastNotification.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Mobile Responsive Adaptation ── */
+    @media (max-width: 820px) {
+      #viewportStage {
+        padding: 12px;
+        justify-content: flex-start;
+        padding-top: 24px;
+      }
+
+      .stage-cluster {
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      #previewDesktop {
+        max-width: 100%;
+        width: 90vw;
+      }
+
+      #previewMobile {
+        display: none; /* Hide secondary mobile frame on small phones to keep focus center */
+      }
+
+      #mobileSheetToggle {
+        display: flex;
+        align-items: center;
+      }
+
+      #draggablePanel {
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        max-height: 80vh !important;
+        border-radius: 24px 24px 0 0 !important;
+        transform: translateY(105%);
+      }
+
+      #draggablePanel.sheet-open {
+        transform: translateY(0) !important;
+      }
+
+      .panel-header {
+        cursor: default;
+        padding: 16px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand-wrap">
+      <div class="brand-icon">WPR</div>
+      <span id="txtStudioTitle">WLLPR STUDIO</span>
+    </div>
+
+    <div class="header-controls">
+      <!-- Multilingual Switcher -->
+      <div class="dropdown">
+        <button class="dropdown-btn" id="langDropdownBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <span id="activeLangTag">EN</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+        <div class="dropdown-menu" id="langMenu">
+          <button class="dropdown-item active" data-lang="en">English (EN)</button>
+          <button class="dropdown-item" data-lang="es">Español (ES)</button>
+          <button class="dropdown-item" data-lang="hi">हिन्दी (HI)</button>
+        </div>
+      </div>
+
+      <!-- Theme Switcher -->
+      <div class="theme-toggle-pill">
+        <button class="theme-btn active" id="btnThemeDark" title="Dark theme">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 1a6 6 0 1 0 0 12A4.5 4.5 0 0 1 7 1z"></path></svg>
+        </button>
+        <button class="theme-btn" id="btnThemeLight" title="Light theme">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="3"></circle><path d="M6.5 1v1.5M6.5 11.5V13M1 6.5h1.5M11.5 6.5H13M2.6 2.6l1 1M9.4 9.4l1 1M2.6 10.4l1-1M9.4 3.6l1-1"></path></svg>
+        </button>
+      </div>
+
+      <!-- Quick Export Modal Trigger Button -->
+      <button class="dropdown-btn" id="openExportModalBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span id="txtBtnExportTop">Export</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- FIXED CENTERED WORKSPACE VIEWPORT -->
+  <div id="viewportStage">
+    <div class="stage-cluster">
+      <div class="preview-card">
+        <div class="preview-caption" id="lblDesktopCap">Desktop 4K (16:9)</div>
+        <div class="canvas-frame">
+          <canvas id="previewDesktop" width="640" height="360"></canvas>
+        </div>
+      </div>
+      <div class="preview-card">
+        <div class="preview-caption" id="lblMobileCap">Phone (19.5:9)</div>
+        <div class="canvas-frame">
+          <canvas id="previewMobile" width="145" height="314"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="stage-hint">
+      <span class="keycap">Spacebar</span>
+      <span id="txtShortcutPrompt">Press Space to generate a new variation</span>
+    </div>
+  </div>
+
+  <!-- MOVABLE & COLLAPSIBLE CONTROLS PANEL -->
+  <aside id="draggablePanel">
+    <div class="panel-header" id="panelDragBar">
+      <div class="panel-drag-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+        <span id="txtPanelTitle">Controls</span>
+      </div>
+      <div class="panel-actions">
+        <button class="icon-mini-btn" id="collapsePanelBtn" title="Collapse / Expand">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-body">
+      <!-- 1. Procedural Patterns Grid -->
+      <div class="control-row">
+        <div class="control-head">
+          <span id="lblSecPattern">Pattern Style</span>
+          <span class="active-badge" id="currentPatternBadge">Hills</span>
+        </div>
+        <div class="pattern-grid" id="patternGridContainer"></div>
+      </div>
+
+      <!-- 2. Color Palettes Selection -->
+      <div class="control-row">
+        <div class="control-head">
+          <span id="lblSecPalette">Color Palette</span>
+          <span class="active-badge" id="currentPaletteBadge">Charcoal</span>
+        </div>
+        <div class="palette-grid" id="paletteGridContainer"></div>
+        <button class="custom-palette-btn" id="btnOpenCustomColorModal">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span id="lblCreateCustomPalette">Create Custom Palette</span>
+        </button>
+      </div>
+
+      <!-- 3. Shade / Light-Dark Inversion -->
+      <div class="control-row">
+        <div class="control-head">
+          <span id="lblSecShade">Shade</span>
+        </div>
+        <div class="shade-btn-group">
+          <button class="shade-btn active" id="btnShadeDark">
+            <span class="shade-dot dark"></span>
+            <span id="lblShadeDark">Dark</span>
+          </button>
+          <button class="shade-btn" id="btnShadeLight">
+            <span class="shade-dot light"></span>
+            <span id="lblShadeLight">Light</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4. Complexity & Scale Slider -->
+      <div class="control-row">
+        <div class="control-head">
+          <span id="lblSecComplexity">Scale & Density</span>
+          <span class="active-badge" id="lblScaleDisplay">1.0x</span>
+        </div>
+        <input type="range" class="range-bar" id="sliderDensity" min="0.5" max="2.2" step="0.1" value="1.0">
+      </div>
+
+      <!-- 5. Toggles: Clock Overlay & Aspect Ratio Mode -->
+      <div class="control-row">
+        <label class="switch-row">
+          <span id="lblToggleClock">Show Clock Preview</span>
+          <input type="checkbox" id="chkShowClock" checked hidden>
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        </label>
+      </div>
+
+      <!-- 6. Action Button: Randomize -->
+      <button class="btn-full btn-secondary" id="btnShuffleSeed">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        <span id="btnShuffleLabel">GENERATE VARIATION</span>
+      </button>
+
+      <!-- 7. Action Button: Download & Export -->
+      <button class="btn-full btn-primary" id="btnTriggerExport">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="12" height="9" rx="1"></rect><path d="M5 15h6M8 12v3"></path></svg>
+        <span id="btnDownloadLabel">EXPORT WALLPAPER</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Mobile Floating Trigger -->
+  <button id="mobileSheetToggle">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    <span id="txtMobileConfig">Customise</span>
+  </button>
+
+  <!-- CUSTOM PALETTE BUILDER MODAL -->
+  <div class="modal-backdrop" id="customColorModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-title" id="txtCustomColorModalTitle">Custom Palette Builder</span>
+        <button class="icon-mini-btn" id="closeCustomColorModalBtn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="custom-gradient-preview" id="customGradientPreview"></div>
+
+        <div class="color-picker-row">
+          <span class="color-picker-label" id="lblColorDeep">Deep Base</span>
+          <div class="native-color-wrap">
+            <input type="color" id="colPick1" value="#090d16">
+          </div>
+        </div>
+        <div class="color-picker-row">
+          <span class="color-picker-label" id="lblColorMid1">Mid Accent 1</span>
+          <div class="native-color-wrap">
+            <input type="color" id="colPick2" value="#1d3d63">
+          </div>
+        </div>
+        <div class="color-picker-row">
+          <span class="color-picker-label" id="lblColorMid2">Mid Accent 2</span>
+          <div class="native-color-wrap">
+            <input type="color" id="colPick3" value="#3b82f6">
+          </div>
+        </div>
+        <div class="color-picker-row">
+          <span class="color-picker-label" id="lblColorHighlight">High Light</span>
+          <div class="native-color-wrap">
+            <input type="color" id="colPick4" value="#93c5fd">
+          </div>
+        </div>
+
+        <button class="btn-full btn-primary" id="btnSaveCustomPalette">
+          <span id="lblBtnApplyCustomPalette">Save & Apply Palette</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT & QUALITY MODAL -->
+  <div class="modal-backdrop" id="exportModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-title" id="txtExportModalTitle">Export Quality & Format</span>
+        <button class="icon-mini-btn" id="closeExportModalBtn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="control-row">
+          <span class="control-head" id="lblExportResolution">Resolution Preset</span>
+          <select class="select-input" id="exportPresetSelect">
+            <option value="3840x2160">Desktop Ultra 4K (3840 × 2160)</option>
+            <option value="2560x1440">Desktop QHD 2K (2560 × 1440)</option>
+            <option value="1920x1080">Desktop Full HD (1920 × 1080)</option>
+            <option value="3440x1440">Ultrawide 21:9 (3440 × 1440)</option>
+            <option value="1290x2796">iPhone Pro Max (1290 × 2796)</option>
+            <option value="1170x2532">Standard Phone (1170 × 2532)</option>
+            <option value="2048x2732">iPad / Tablet (2048 × 2732)</option>
+            <option value="custom">Custom Dimensions...</option>
+          </select>
+        </div>
+
+        <!-- Custom Dim fields -->
+        <div id="customDimRow" style="display:none; gap:10px; display:none;">
+          <input type="number" id="customExportW" class="select-input" placeholder="Width (px)" value="2000">
+          <input type="number" id="customExportH" class="select-input" placeholder="Height (px)" value="2000">
+        </div>
+
+        <div class="control-row">
+          <span class="control-head" id="lblExportFormat">File Format</span>
+          <select class="select-input" id="exportFormatSelect">
+            <option value="image/png">PNG (Lossless Crystal Clear)</option>
+            <option value="image/jpeg">JPEG (Compressed)</option>
+            <option value="image/webp">WebP (Modern Compact)</option>
+          </select>
+        </div>
+
+        <div class="control-row" id="qualitySliderRow" style="display:none;">
+          <div class="control-head">
+            <span id="lblExportQuality">Quality</span>
+            <span id="qualityValDisplay">92%</span>
+          </div>
+          <input type="range" class="range-bar" id="sliderExportQuality" min="0.5" max="1.0" step="0.02" value="0.92">
+        </div>
+
+        <button class="btn-full btn-primary" id="btnDownloadRendered">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span id="lblBtnDownloadFile">Download Now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastNotification">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    <span id="toastMessage">Wallpaper rendered and saved!</span>
+  </div>
+
+  <!-- SCRIPT: GENERATIVE MATH ENGINE & EVENT CONTROLLER -->
+  <script>
+    /* ── 1. MULTILINGUAL TRANSLATIONS (EN, ES, HI) ── */
+    const I18N = {
+      en: {
+        studioTitle: "WLLPR STUDIO",
+        desktopCap: "Desktop 4K (16:9)",
+        mobileCap: "Phone (19.5:9)",
+        shortcutPrompt: "Press Space to generate a new variation",
+        controls: "Controls",
+        secPattern: "Pattern Style",
+        secPalette: "Color Palette",
+        createCustom: "Create Custom Palette",
+        secShade: "Shade",
+        dark: "Dark",
+        light: "Light",
+        secComplexity: "Scale & Density",
+        toggleClock: "Show Clock Preview",
+        btnShuffle: "GENERATE VARIATION",
+        btnExport: "EXPORT WALLPAPER",
+        btnExportTop: "Export",
+        mobileConfig: "Customise",
+        customColorTitle: "Custom Palette Builder",
+        colorDeep: "Deep Base",
+        colorMid1: "Mid Accent 1",
+        colorMid2: "Mid Accent 2",
+        colorHighlight: "High Light",
+        btnSaveCustom: "Save & Apply Palette",
+        exportTitle: "Export Quality & Format",
+        resolutionPreset: "Resolution Preset",
+        fileFormat: "File Format",
+        quality: "Quality",
+        downloadNow: "Download Now",
+        toastSuccess: "Wallpaper rendered and saved!",
+        patterns: {
+          'flowing-hills': "Hills",
+          'smooth-wave': "Wave",
+          'sand-dunes': "Dunes",
+          'mountains': "Mountains",
+          'concentric-arcs': "Arcs",
+          'paths': "Contours",
+          'aurora': "Aurora",
+          'starfield': "Starfield",
+          'cyber-grid': "Cyber Grid",
+          'voronoi': "Mesh Poly"
+        },
+        palettes: {
+          'Charcoal': "Charcoal",
+          'Stone': "Stone",
+          'Blue': "Azure Blue",
+          'Sunrise': "Sunrise",
+          'Fire': "Fire Glow",
+          'Purple': "Cyber Purple",
+          'Toxic Glow': "Toxic Green",
+          'Arctic Winter': "Arctic Blue",
+          'Neon Horizon': "Neon Wave",
+          'Solar Flare': "Solar Flare",
+          'Deep Forest': "Deep Forest",
+          'Cosmic Blush Nebula': "Cosmic Pink",
+          'Ocean Depths': "Ocean Depths",
+          'Blood Moon': "Blood Moon"
+        },
+        days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+        months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+        dateFmt: (d, day, month, date) => `${day}, ${month} ${date}`
+      },
+      es: {
+        studioTitle: "WLLPR ESTUDIO",
+        desktopCap: "Escritorio 4K (16:9)",
+        mobileCap: "Teléfono (19.5:9)",
+        shortcutPrompt: "Presiona Espacio para generar nueva variación",
+        controls: "Controles",
+        secPattern: "Estilo de Patrón",
+        secPalette: "Paleta de Color",
+        createCustom: "Crear Paleta Personalizada",
+        secShade: "Tono",
+        dark: "Oscuro",
+        light: "Claro",
+        secComplexity: "Escala y Densidad",
+        toggleClock: "Vista previa del reloj",
+        btnShuffle: "GENERAR VARIACIÓN",
+        btnExport: "EXPORTAR FONDO",
+        btnExportTop: "Exportar",
+        mobileConfig: "Personalizar",
+        customColorTitle: "Creador de Paleta Personalizada",
+        colorDeep: "Base Oscura",
+        colorMid1: "Acento Medio 1",
+        colorMid2: "Acento Medio 2",
+        colorHighlight: "Brillo Alto",
+        btnSaveCustom: "Guardar y Aplicar Paleta",
+        exportTitle: "Calidad y Formato de Exportación",
+        resolutionPreset: "Resolución Predefinida",
+        fileFormat: "Formato de Archivo",
+        quality: "Calidad",
+        downloadNow: "Descargar Ahora",
+        toastSuccess: "¡Fondo de pantalla generado y guardado!",
+        patterns: {
+          'flowing-hills': "Colinas",
+          'smooth-wave': "Ondas",
+          'sand-dunes': "Dunas",
+          'mountains': "Montañas",
+          'concentric-arcs': "Arcos",
+          'paths': "Contornos",
+          'aurora': "Aurora",
+          'starfield': "Estelar",
+          'cyber-grid': "Cuadrícula Cyber",
+          'voronoi': "Malla Poli"
+        },
+        palettes: {
+          'Charcoal': "Carbón",
+          'Stone': "Piedra",
+          'Blue': "Azul Océano",
+          'Sunrise': "Amanecer",
+          'Fire': "Fuego",
+          'Purple': "Púrpura",
+          'Toxic Glow': "Brillo Tóxico",
+          'Arctic Winter': "Invierno Ártico",
+          'Neon Horizon': "Horizonte Neón",
+          'Solar Flare': "Llamarada Solar",
+          'Deep Forest': "Bosque Profundo",
+          'Cosmic Blush Nebula': "Rosa Cósmico",
+          'Ocean Depths': "Profundidades",
+          'Blood Moon': "Luna de Sangre"
+        },
+        days: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+        months: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+        dateFmt: (d, day, month, date) => `${day}, ${date} de ${month}`
+      },
+      hi: {
+        studioTitle: "WLLPR स्टूडियो",
+        desktopCap: "डेस्कटॉप 4K (16:9)",
+        mobileCap: "फ़ोन (19.5:9)",
+        shortcutPrompt: "नई शैली उत्पन्न करने के लिए स्पेस दबाएं",
+        controls: "नियंत्रण",
+        secPattern: "पैटर्न शैली",
+        secPalette: "रंग पैलेट",
+        createCustom: "कस्टम रंग पैलेट बनाएं",
+        secShade: "शेड",
+        dark: "डार्क",
+        light: "लाइट",
+        secComplexity: "स्केल और घनत्व",
+        toggleClock: "घड़ी पूर्वावलोकन दिखाएं",
+        btnShuffle: "नई भिन्नता उत्पन्न करें",
+        btnExport: "वॉलपेपर निर्यात करें",
+        btnExportTop: "डाउनलोड",
+        mobileConfig: "अनुकूलित करें",
+        customColorTitle: "कस्टम पैलेट निर्माता",
+        colorDeep: "गहरा बेस रंग",
+        colorMid1: "मध्यम शेड 1",
+        colorMid2: "मध्यम शेड 2",
+        colorHighlight: "उज्ज्वल रंग",
+        btnSaveCustom: "सहेजें और लागू करें",
+        exportTitle: "निर्यात गुणवत्ता और प्रारूप",
+        resolutionPreset: "रिज़ॉल्यूशन प्रीसेट",
+        fileFormat: "फ़ाइल प्रारूप",
+        quality: "गुणवत्ता",
+        downloadNow: "अभी डाउनलोड करें",
+        toastSuccess: "वॉलपेपर सफलतापूर्वक तैयार और सहेजा गया!",
+        patterns: {
+          'flowing-hills': "पहाड़ियां",
+          'smooth-wave': "लहरें",
+          'sand-dunes': "रेत के टीले",
+          'mountains': "पर्वत",
+          'concentric-arcs': "चापाकार",
+          'paths': "कंटूर रेखाएं",
+          'aurora': "ध्रुवीय ज्योति (अरोरा)",
+          'starfield': "तारामंडल नेबुला",
+          'cyber-grid': "साइबर ग्रिड",
+          'voronoi': "पॉलीगॉन जाल"
+        },
+        palettes: {
+          'Charcoal': "चारकोल",
+          'Stone': "पत्थर",
+          'Blue': "नीला",
+          'Sunrise': "सूर्योदय",
+          'Fire': "अग्नि ज्वाला",
+          'Purple': "साइबर पर्पल",
+          'Toxic Glow': "टॉक्सिक ग्लो",
+          'Arctic Winter': "आर्कटिक शीत",
+          'Neon Horizon': "नियॉन होराइजन",
+          'Solar Flare': "सौर ज्वाला",
+          'Deep Forest': "गहरा जंगल",
+          'Cosmic Blush Nebula': "कॉस्मिक ब्लश",
+          'Ocean Depths': "गहरा समुद्र",
+          'Blood Moon': "रक्त चंद्र"
+        },
+        days: ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'],
+        months: ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'],
+        dateFmt: (d, day, month, date) => `${day}, ${date} ${month}`
+      }
+    };
+
+    /* ── 2. PALETTES & PROCEDURAL PATTERNS ── */
+    const DEFAULT_PALETTES = [
+      { name: 'Charcoal', colors: ['#000000','#141414','#2a2a2a','#404040','#595959','#737373','#8c8c8c','#b3b3b3','#d9d9d9','#ffffff'] },
+      { name: 'Stone',    colors: ['#1a1714','#2c2825','#3e3a35','#534e47','#6b655c','#857d72','#9f9688','#b8b0a3','#d1c9bd','#ece6dc'] },
+      { name: 'Blue',     colors: ['#01052b','#04137a','#0825c7','#0d39ff','#1552ff','#2f73ff','#58a3ff','#7dc3ff','#aedfff','#edf8ff'] },
+      { name: 'Sunrise',  colors: ['#031c35','#05284a','#063862','#0b4b7a','#ff5b40','#ff7240','#ff9438','#ffb33f','#ffd064','#fff0c8'] },
+      { name: 'Fire',     colors: ['#1a0000','#450000','#7a0000','#b30000','#e63900','#ff6a00','#ff9500','#ffb700','#ffd166','#fff1c2'] },
+      { name: 'Purple',   colors: ['#100014','#22002e','#3f005a','#5c0085','#7a00b3','#9b1fff','#b84dff','#cf88ff','#e4c2ff','#f7ebff'] },
+      { name: 'Toxic Glow', colors: ['#050807','#0c1410','#14221a','#1e3325','#2a4d2e','#3f6b2f','#5f8a2c','#86b326','#b9e83f','#f6ffe0'] },
+      { name: 'Arctic Winter', colors: ['#081018','#112131','#1d3348','#33516a','#55768f','#7d9eb5','#a7c2d3','#cfe0ea','#e8f0f5','#ffffff']},
+      { name: 'Neon Horizon', colors: ['#13051a','#290d3a','#3c1259','#3b2285','#2b42b0','#1d6cd4','#2ca1e8','#59cef2','#94f2f7','#e0fbfd'] },
+      { name: 'Solar Flare', colors: ['#1f0505','#3a0d0d','#611111','#871c26','#ab3037','#cb4f41','#e6744a','#f79d5c','#fcc579','#fdf2a6'] },
+      { name: 'Deep Forest', colors: ['#051214','#0b2426','#123a39','#18524c','#226b5d','#32856c','#49a07a','#68ba89','#91d49d','#c3ebd0'] },
+      { name: 'Cosmic Blush Nebula', colors: ['#120414','#260824','#3f0f3d','#5c1a5c','#7a2a7a','#a33a86','#c85b98','#e98fb6','#ffd0dd','#fff1f6'] },
+      { name: 'Ocean Depths', colors: ['#020c1b','#0a1628','#0f2847','#0d3b6e','#0e5a8a','#1a7fa0','#30a5b8','#5eccc5','#96ead8','#d4fff2'] },
+      { name: 'Blood Moon', colors: ['#000000','#0f0000','#1f0000','#330000','#4d0000','#6b0000','#880000','#a50000','#c40000','#e60000'] }
+    ];
+
+    let PALETTES = [...DEFAULT_PALETTES];
+
+    // Load custom palettes from localStorage if present
+    const savedCustomPalettes = localStorage.getItem('wllpr_custom_palettes');
+    if (savedCustomPalettes) {
+      try {
+        const parsed = JSON.parse(savedCustomPalettes);
+        if (Array.isArray(parsed)) PALETTES.push(...parsed);
+      } catch(e) {}
+    }
+
+    const PATTERNS = [
+      'flowing-hills',
+      'smooth-wave',
+      'sand-dunes',
+      'mountains',
+      'concentric-arcs',
+      'paths',
+      'aurora',
+      'starfield',
+      'cyber-grid',
+      'voronoi'
+    ];
+
+    /* App State */
+    let currentPattern = 0;
+    let currentPalette = 0;
+    let seed = Math.floor(Math.random() * 100000);
+    let inverted = false;
+    let currentLang = 'en';
+    let userScale = 1.0;
+    let showClock = true;
+
+    /* ── 3. NOISE & MATH ENGINE ── */
+    let _seed = 0;
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function noise(x) {
+      const ix = Math.floor(x);
+      const fx = x - ix;
+      const t = fx * fx * (3 - 2 * fx);
+      const seedA = Math.sin(ix * 127.1 + _seed * 0.01) * 43758.5453;
+      const seedB = Math.sin((ix + 1) * 127.1 + _seed * 0.01) * 43758.5453;
+      const a = seedA - Math.floor(seedA);
+      const b = seedB - Math.floor(seedB);
+      return a + (b - a) * t;
+    }
+
+    function fbm(x, octaves = 4) {
+      let val = 0, amp = 0.5, freq = 1;
+      for (let i = 0; i < octaves; i++) {
+        val += amp * noise(x * freq);
+        amp *= 0.5;
+        freq *= 2.1;
+      }
+      return val;
+    }
+
+    function hash2(ix, iy) {
+      const h = Math.sin(ix * 127.1 + iy * 311.7 + _seed * 0.013) * 43758.5453;
+      return h - Math.floor(h);
+    }
+
+    function noise2(x, y) {
+      const ix = Math.floor(x), iy = Math.floor(y);
+      const fx = x - ix, fy = y - iy;
+      const ux = fx * fx * (3 - 2 * fx);
+      const uy = fy * fy * (3 - 2 * fy);
+      const a = hash2(ix, iy),     b = hash2(ix + 1, iy);
+      const c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
+      return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy;
+    }
+
+    function fbm2(x, y, octaves = 5) {
+      let val = 0, amp = 0.5, freq = 1;
+      for (let i = 0; i < octaves; i++) {
+        val += amp * noise2(x * freq, y * freq);
+        amp *= 0.5;
+        freq *= 2.03;
+      }
+      return val;
+    }
+
+    function lerpColor(c1, c2, t) {
+      const r1 = parseInt(c1.slice(1,3),16), g1 = parseInt(c1.slice(3,5),16), b1 = parseInt(c1.slice(5,7),16);
+      const r2 = parseInt(c2.slice(1,3),16), g2 = parseInt(c2.slice(3,5),16), b2 = parseInt(c2.slice(5,7),16);
+      return `rgb(${Math.round(r1+(r2-r1)*t)},${Math.round(g1+(g2-g1)*t)},${Math.round(b1+(b2-b1)*t)})`;
+    }
+
+    function getColor(paletteIdx, t, inv) {
+      const pal = PALETTES[paletteIdx] || PALETTES[0];
+      const colors = pal.colors;
+      const ct = inv ? 1 - t : t;
+      const idx = ct * (colors.length - 1);
+      const i = Math.floor(idx);
+      const f = idx - i;
+      if (i >= colors.length - 1) return colors[colors.length - 1];
+      if (i < 0) return colors[0];
+      return lerpColor(colors[i], colors[i+1], f);
+    }
+
+    function getBgColor(paletteIdx, inv) {
+      const pal = PALETTES[paletteIdx] || PALETTES[0];
+      const colors = pal.colors;
+      return inv ? colors[colors.length - 1] : colors[0];
+    }
+
+    /* ── 4. PROCEDURAL SHAPE PROCEDURES ── */
+    function drawPineTree(ctx, x, bottomY, width, height, rng) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x - width * 0.08, bottomY);
+      ctx.lineTo(x - width * 0.08, bottomY - height * 0.15);
+      ctx.lineTo(x + width * 0.08, bottomY - height * 0.15);
+      ctx.lineTo(x + width * 0.08, bottomY);
+      ctx.fill();
+
+      const segments = 24;
+      for (let i = 0; i < segments; i++) {
+        const t = i / (segments - 1);
+        const topY = bottomY - height + (height * t * 0.45);
+        const currBottomY = bottomY - height + (height * (t + 0.22));
+        const currWidth = width * (0.25 + t * 0.75);
+        ctx.beginPath();
+        ctx.moveTo(x, topY);
+        const jitterL = (rng() - 0.5) * (width * 0.08);
+        const jitterR = (rng() - 0.5) * (width * 0.08);
+        ctx.lineTo(x - currWidth / 2 + jitterL, currBottomY);
+        ctx.lineTo(x + currWidth / 2 + jitterR, currBottomY);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawFlowingHills(ctx, w, h, pal, rng, inv, scale) {
+      const layers = 5;
+      const isDesktop = w > h;
+      for (let i = 0; i < layers; i++) {
+        const t = (i + 1) / layers;
+        const spacingFactor = isDesktop ? 0.40 : 0.33;
+        const baseY = h * (0.5 + (i / layers) * spacingFactor);
+        ctx.fillStyle = getColor(pal, t * 0.85 + 0.1, inv);
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        let ridgePoints = [];
+        const step = Math.max(3, Math.round(w / (140 * scale)));
+        for (let x = 0; x <= w + step; x += step) {
+          const nx = x / w;
+          let y;
+          if (i < 2) {
+            y = baseY + fbm(nx * 4.5 * scale + i * 4.5, 9) * h * (isDesktop ? 0.32 : 0.12) * scale - h * 0.08;
+          } else {
+            y = baseY + fbm(nx * 2.5 * scale + i * 2.1, 7) * h * (isDesktop ? 0.16 : 0.06) * scale;
+          }
+          ridgePoints.push({ x, y });
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fill();
+
+        if (i >= 1) {
+          let baseTreeWidth = (isDesktop ? h * 0.045 : w * 0.12) * Math.min(scale, 1.2);
+          let baseTreeHeight = baseTreeWidth * (1 + rng() * 0.2);
+          const stepX = baseTreeWidth * 0.35;
+          for (let x = 0; x <= w; x += stepX) {
+            const pct = x / w;
+            const pt = ridgePoints[Math.floor(pct * (ridgePoints.length - 1))] || ridgePoints[0];
+            const rowsDown = isDesktop ? (i === 1 ? 3 : 5) : 2;
+            for (let row = 0; row < rowsDown; row++) {
+              const currentY = pt.y + row * (baseTreeHeight * 0.22);
+              if (currentY > h + 20) continue;
+              const sc = 0.7 + rng() * 0.8;
+              drawPineTree(ctx, x + (rng() - 0.5) * (stepX * 0.5), currentY, baseTreeWidth * sc, baseTreeHeight * sc, rng);
+            }
+          }
+        }
+      }
+    }
+
+    function drawSmoothWave(ctx, w, h, pal, rng, inv, scale) {
+      const layers = Math.round((8 + (rng() * 5 | 0)) * Math.min(scale, 1.4));
+      const centerX = w * (0.45 + rng() * 0.1);
+      const baseY = h * (0.75 + rng() * 0.08);
+      for (let i = layers; i >= 0; i--) {
+        const t = i / layers;
+        const spread = h * (0.8 + t * 1.8) * (1 / scale);
+        const peakH = h * (0.05 + t * 0.3) * scale;
+        const skew = rng() * 0.2 - 0.10;
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        ctx.lineTo(0, baseY + peakH * 0.5);
+        const steps = 140;
+        for (let s = 0; s <= steps; s++) {
+          const st = s / steps;
+          const x = st * w;
+          const dist = (x - centerX) / spread;
+          const bell = Math.exp(-dist * dist * 0.4);
+          const asymmetry = 1 + skew * dist;
+          const wave = bell * peakH * asymmetry;
+          const micro = fbm((x / h) * 2 * scale + i * 1.4, 3) * h * 0.008;
+          ctx.lineTo(x, baseY - wave + micro);
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = getColor(pal, 0.1 + (1 - t) * 0.8, inv);
+        ctx.fill();
+      }
+    }
+
+    function drawSandDunes(ctx, w, h, pal, rng, inv, scale) {
+      const layers = Math.round((7 + (rng() * 5 | 0)) * Math.min(scale, 1.3));
+      for (let i = 0; i < layers; i++) {
+        const t = (i + 1) / layers;
+        const baseY = h * (0.55 + t * 0.35);
+        const freq = (0.5 + rng() * 0.8) * scale;
+        const phase = rng() * 10;
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += 3) {
+          const nx = x / h;
+          const wave = Math.sin(nx * Math.PI * freq + phase) * h * 0.05 * scale;
+          const n = fbm(nx * 0.8 * scale + i * 2.1, 3) * h * 0.05;
+          const y = baseY + wave + n;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fillStyle = getColor(pal, t * 0.8 + 0.15, inv);
+        ctx.fill();
+      }
+    }
+
+    function drawMountains(ctx, w, h, pal, rng, inv, scale) {
+      const layers = Math.round((5 + (rng() * 3 | 0)) * Math.min(scale, 1.3));
+      for (let i = 0; i < layers; i++) {
+        const t = (i + 1) / layers;
+        const baseY = h * (0.55 + t * 0.35);
+        const peakCount = Math.round((2 + (rng() * 2 | 0)) * scale);
+        const offset = rng() * 50;
+        ctx.beginPath();
+        ctx.moveTo(-2, h + 2);
+        const peaks = [];
+        for (let p = 0; p < peakCount; p++) {
+          peaks.push({
+            cx: w * (0.1 + rng() * 0.8),
+            peakH: h * (0.1 + rng() * 0.15) * (1 - i * 0.08) * scale,
+            width: h * (0.6 + rng() * 0.6) * (1 / scale),
+          });
+        }
+        for (let x = -2; x <= w + 2; x += 3) {
+          let y = baseY;
+          for (const p of peaks) {
+            const dist = Math.abs(x - p.cx);
+            if (dist < p.width) {
+              const rise = (1 - dist / p.width);
+              const sharpness = 1.3 + rng() * 0.3;
+              y = Math.min(y, baseY - Math.pow(rise, sharpness) * p.peakH);
+            }
+          }
+          const micro = fbm((x / h) * 1.5 * scale + i * 2.3 + offset, 3) * h * 0.008;
+          ctx.lineTo(x, y + micro);
+        }
+        ctx.lineTo(w + 2, h + 2);
+        ctx.closePath();
+        ctx.fillStyle = getColor(pal, t * 0.8 + 0.12, inv);
+        ctx.fill();
+      }
+    }
+
+    function drawConcentricArcs(ctx, w, h, pal, rng, inv, scale) {
+      const maxR = h * 1.0 * scale;
+      const originX = w * (0.45 + rng() * 0.1);
+      const originY = h * 1.5;
+      const rings = Math.round((14 + (rng() * 6 | 0)) * scale);
+      for (let i = rings; i >= 0; i--) {
+        const t = i / rings;
+        const r = maxR * t;
+        ctx.beginPath();
+        ctx.arc(originX, originY, Math.max(0, r), 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fillStyle = getColor(pal, 0.1 + (1 - t) * 0.8, inv);
+        ctx.fill();
+      }
+    }
+
+    function drawPaths(ctx, w, h, pal, rng, inv, scale) {
+      const isDesktop = w > h;
+      const cols = Math.round((isDesktop ? 180 : 80) * scale);
+      const rows = Math.round(cols * h / w);
+      const cw = w / cols, ch = h / rows;
+      const scaleX = (isDesktop ? 4.2 : 2.6) * scale;
+      const ox = rng() * 100, oy = rng() * 100;
+      const field = new Float32Array((cols + 1) * (rows + 1));
+      let min = Infinity, max = -Infinity;
+      for (let j = 0; j <= rows; j++) {
+        for (let i = 0; i <= cols; i++) {
+          const v = fbm2((i / cols) * scaleX + ox, (j / rows) * 3.0 * scale + oy, 5);
+          field[j * (cols + 1) + i] = v;
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      }
+
+      const levels = Math.round((isDesktop ? 10 : 7) * scale);
+      ctx.lineWidth = Math.max(1, (w / 2800) * scale);
+      for (let L = 1; L < levels; L++) {
+        const t = L / levels;
+        const iso = min + (max - min) * t;
+        ctx.strokeStyle = getColor(pal, 0.62 + t * 0.33, inv);
+        ctx.beginPath();
+        for (let j = 0; j < rows; j++) {
+          for (let i = 0; i < cols; i++) {
+            const tl = field[j * (cols + 1) + i];
+            const tr = field[j * (cols + 1) + i + 1];
+            const br = field[(j + 1) * (cols + 1) + i + 1];
+            const bl = field[(j + 1) * (cols + 1) + i];
+            let state = (tl > iso ? 8 : 0) | (tr > iso ? 4 : 0) | (br > iso ? 2 : 0) | (bl > iso ? 1 : 0);
+            if (state === 0 || state === 15) continue;
+
+            const x0 = i * cw, y0 = j * ch, x1 = x0 + cw, y1 = y0 + ch;
+            const top = { x: x0 + cw * (iso - tl) / (tr - tl), y: y0 };
+            const bottom = { x: x0 + cw * (iso - bl) / (br - bl), y: y1 };
+            const left = { x: x0, y: y0 + ch * (iso - tl) / (bl - tl) };
+            const right = { x: x1, y: y0 + ch * (iso - tr) / (br - tr) };
+
+            let segs = [];
+            switch (state) {
+              case 1: case 14: segs = [left, bottom]; break;
+              case 2: case 13: segs = [bottom, right]; break;
+              case 3: case 12: segs = [left, right]; break;
+              case 4: case 11: segs = [top, right]; break;
+              case 6: case 9:  segs = [top, bottom]; break;
+              case 7: case 8:  segs = [left, top]; break;
+              default: segs = [left, top]; break;
+            }
+            if (segs.length === 2) {
+              ctx.moveTo(segs[0].x, segs[0].y);
+              ctx.lineTo(segs[1].x, segs[1].y);
+            }
+          }
+        }
+        ctx.stroke();
+      }
+    }
+
+    /* ── NEW PATTERNS ── */
+    function drawAurora(ctx, w, h, pal, rng, inv, scale) {
+      const isDesktop = w > h;
+      const bands = Math.round((isDesktop ? 6 : 4) * scale);
+      ctx.globalCompositeOperation = inv ? 'multiply' : 'screen';
+      for (let b = 0; b < bands; b++) {
+        const t = b / Math.max(1, bands - 1);
+        const colX = (0.15 + rng() * 0.7) * w;
+        const bandW = w * (0.08 + rng() * 0.12) * scale;
+        const colColor = getColor(pal, 0.45 + t * 0.5, inv);
+        const steps = 120;
+
+        ctx.beginPath();
+        for (let s = 0; s <= steps; s++) {
+          const yt = s / steps, y = yt * h;
+          const sway = fbm(yt * 3 * scale + b * 5.3, 4) * w * 0.12;
+          ctx.lineTo(colX + sway - bandW * (0.4 + 0.4 * fbm(yt * 2 + b, 3)), y);
+        }
+        for (let s = steps; s >= 0; s--) {
+          const yt = s / steps, y = yt * h;
+          const sway = fbm(yt * 3 * scale + b * 5.3, 4) * w * 0.12;
+          ctx.lineTo(colX + sway + bandW * (0.4 + 0.4 * fbm(yt * 2 + b + 9, 3)), y);
+        }
+        ctx.closePath();
+
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(0.2, colColor);
+        grad.addColorStop(0.8, colColor);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = 0.55;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    function drawStarfield(ctx, w, h, pal, rng, inv, scale) {
+      // Celestial Nebula Clouds
+      const nebulas = Math.round(4 * scale);
+      ctx.globalCompositeOperation = inv ? 'multiply' : 'screen';
+      for (let n = 0; n < nebulas; n++) {
+        const cx = rng() * w, cy = rng() * h;
+        const radius = (Math.max(w, h) * 0.35) * scale;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        const col = getColor(pal, 0.3 + (n / nebulas) * 0.6, inv);
+        grad.addColorStop(0, col);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+
+      // Stars
+      const starCount = Math.round((w * h) / (12000 / scale));
+      for (let i = 0; i < starCount; i++) {
+        const x = rng() * w, y = rng() * h;
+        const depth = rng();
+        const r = (0.5 + depth * 2.0) * Math.min(scale, 1.2);
+        ctx.fillStyle = getColor(pal, 0.7 + depth * 0.3, inv);
+        ctx.globalAlpha = 0.3 + depth * 0.7;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        if (depth > 0.94) {
+          ctx.globalAlpha = 0.2;
+          ctx.beginPath();
+          ctx.arc(x, y, r * 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawCyberGrid(ctx, w, h, pal, rng, inv, scale) {
+      const horizonY = h * 0.55;
+      const numVLines = Math.round(28 * scale);
+      const numHLines = Math.round(18 * scale);
+
+      // Sky gradient
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+      skyGrad.addColorStop(0, getBgColor(pal, inv));
+      skyGrad.addColorStop(1, getColor(pal, 0.25, inv));
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, horizonY);
+
+      // Sun on horizon
+      const sunR = Math.min(w, h) * 0.18 * scale;
+      const sunGrad = ctx.createLinearGradient(0, horizonY - sunR, 0, horizonY);
+      sunGrad.addColorStop(0, getColor(pal, 0.9, inv));
+      sunGrad.addColorStop(1, getColor(pal, 0.5, inv));
+      ctx.fillStyle = sunGrad;
+      ctx.beginPath();
+      ctx.arc(w / 2, horizonY, sunR, Math.PI, 0, false);
+      ctx.fill();
+
+      // Sun stripes
+      ctx.strokeStyle = getBgColor(pal, inv);
+      ctx.lineWidth = Math.max(2, h * 0.006);
+      for (let s = 1; s <= 6; s++) {
+        const sy = horizonY - sunR * (s / 7);
+        ctx.beginPath();
+        ctx.moveTo(w / 2 - sunR, sy);
+        ctx.lineTo(w / 2 + sunR, sy);
+        ctx.stroke();
+      }
+
+      // Perspective Grid Floor
+      ctx.strokeStyle = getColor(pal, 0.65, inv);
+      ctx.lineWidth = Math.max(1, w / 2400);
+
+      // Horizontal lines with perspective compression
+      for (let i = 0; i <= numHLines; i++) {
+        const t = Math.pow(i / numHLines, 2.5);
+        const y = horizonY + t * (h - horizonY);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Vanishing lines to horizon center
+      const centerX = w / 2;
+      for (let i = -numVLines; i <= numVLines; i++) {
+        const bottomX = centerX + (i / numVLines) * w * 1.6;
+        ctx.beginPath();
+        ctx.moveTo(centerX, horizonY);
+        ctx.lineTo(bottomX, h);
+        ctx.stroke();
+      }
+    }
+
+    function drawVoronoiMesh(ctx, w, h, pal, rng, inv, scale) {
+      const numPoints = Math.round(55 * scale);
+      const points = [];
+      for (let i = 0; i < numPoints; i++) {
+        points.push({
+          x: rng() * w,
+          y: rng() * h,
+          color: getColor(pal, rng(), inv)
+        });
+      }
+
+      // Triangulated Mesh effect
+      for (let i = 0; i < points.length; i++) {
+        for (let j = i + 1; j < points.length; j++) {
+          const dist = Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y);
+          const maxDist = Math.max(w, h) * (0.24 / scale);
+          if (dist < maxDist) {
+            ctx.strokeStyle = points[i].color;
+            ctx.globalAlpha = Math.pow(1 - dist / maxDist, 1.6) * 0.6;
+            ctx.lineWidth = Math.max(1, 2 * (1 - dist / maxDist));
+            ctx.beginPath();
+            ctx.moveTo(points[i].x, points[i].y);
+            ctx.lineTo(points[j].x, points[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Render glowing vertices
+      for (const p of points) {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+    }
+
+    function drawPattern(ctx, w, h, patternIdx, paletteIdx, s, inv = false, scale = 1.0) {
+      _seed = s;
+      const rng = mulberry32(s);
+      ctx.fillStyle = getBgColor(paletteIdx, inv);
+      ctx.fillRect(0, 0, w, h);
+
+      switch(PATTERNS[patternIdx]) {
+        case 'flowing-hills':   drawFlowingHills(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'smooth-wave':     drawSmoothWave(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'sand-dunes':      drawSandDunes(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'mountains':       drawMountains(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'concentric-arcs': drawConcentricArcs(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'paths':           drawPaths(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'aurora':          drawAurora(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'starfield':       drawStarfield(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'cyber-grid':      drawCyberGrid(ctx, w, h, paletteIdx, rng, inv, scale); break;
+        case 'voronoi':         drawVoronoiMesh(ctx, w, h, paletteIdx, rng, inv, scale); break;
+      }
+    }
+
+    function drawClockOverlay(ctx, w, h, type, paletteIdx, inv) {
+      if (!showClock) return;
+
+      const bg = getBgColor(paletteIdx, inv);
+      const r = parseInt(bg.slice(1,3), 16), g = parseInt(bg.slice(3,5), 16), b = parseInt(bg.slice(5,7), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      ctx.fillStyle = brightness > 125 ? 'rgba(0, 0, 0, 0.78)' : 'rgba(255, 255, 255, 0.92)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      const time = `${hours}:${mins}`;
+
+      const t = I18N[currentLang];
+      const day = t.days[now.getDay()];
+      const month = t.months[now.getMonth()];
+      const dateStr = t.dateFmt(now, day, month, now.getDate());
+
+      if (type === 'desktop') {
+        ctx.font = '300 11px var(--font)';
+        ctx.fillText(dateStr, w / 2, h * 0.20);
+        ctx.font = '600 42px var(--font)';
+        ctx.fillText(time, w / 2, h * 0.30);
+      } else if (type === 'mobile') {
+        ctx.font = '500 7.5px var(--font)';
+        ctx.fillText(dateStr.toUpperCase(), w / 2, h * 0.15);
+        ctx.font = '700 28px var(--font)';
+        ctx.fillText(time, w / 2, h * 0.23);
+      }
+    }
+
+    /* ── 5. UI CONTROLLERS & RENDERING LIFECYCLE ── */
+    function renderCanvases() {
+      const dCanvas = document.getElementById('previewDesktop');
+      const mCanvas = document.getElementById('previewMobile');
+      const dCtx = dCanvas.getContext('2d');
+      const mCtx = mCanvas.getContext('2d');
+
+      drawPattern(dCtx, dCanvas.width, dCanvas.height, currentPattern, currentPalette, seed, inverted, userScale);
+      drawPattern(mCtx, mCanvas.width, mCanvas.height, currentPattern, currentPalette, seed, inverted, userScale);
+
+      drawClockOverlay(dCtx, dCanvas.width, dCanvas.height, 'desktop', currentPalette, inverted);
+      drawClockOverlay(mCtx, mCanvas.width, mCanvas.height, 'mobile', currentPalette, inverted);
+
+      // Active badges
+      const pName = PALETTES[currentPalette].name;
+      document.getElementById('currentPaletteBadge').textContent = I18N[currentLang].palettes[pName] || pName;
+      document.getElementById('currentPatternBadge').textContent = I18N[currentLang].patterns[PATTERNS[currentPattern]];
+    }
+
+    function initPatternGrid() {
+      const container = document.getElementById('patternGridContainer');
+      container.innerHTML = '';
+      PATTERNS.forEach((key, idx) => {
+        const item = document.createElement('div');
+        item.className = 'pattern-item' + (idx === currentPattern ? ' active' : '');
+        item.setAttribute('data-idx', idx);
+
+        const c = document.createElement('canvas');
+        c.width = 110;
+        c.height = 70;
+        item.appendChild(c);
+
+        const lbl = document.createElement('span');
+        lbl.className = 'pattern-label';
+        lbl.textContent = I18N[currentLang].patterns[key];
+        item.appendChild(lbl);
+
+        drawPattern(c.getContext('2d'), 110, 70, idx, 0, 42, false, 1.0);
+
+        item.onclick = () => {
+          currentPattern = idx;
+          document.querySelectorAll('.pattern-item').forEach(el => el.classList.remove('active'));
+          item.classList.add('active');
+          renderCanvases();
+        };
+
+        container.appendChild(item);
+      });
+    }
+
+    function initPaletteGrid() {
+      const container = document.getElementById('paletteGridContainer');
+      container.innerHTML = '';
+      PALETTES.forEach((pal, idx) => {
+        const circle = document.createElement('div');
+        circle.className = 'palette-circle' + (idx === currentPalette ? ' active' : '');
+        circle.title = I18N[currentLang].palettes[pal.name] || pal.name;
+
+        const c1 = pal.colors[Math.floor(pal.colors.length * 0.2)];
+        const c2 = pal.colors[Math.floor(pal.colors.length * 0.75)];
+        circle.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+
+        circle.onclick = () => {
+          currentPalette = idx;
+          document.querySelectorAll('.palette-circle').forEach(el => el.classList.remove('active'));
+          circle.classList.add('active');
+          renderCanvases();
+        };
+
+        container.appendChild(circle);
+      });
+    }
+
+    function applyLanguage(lang) {
+      currentLang = lang;
+      const dict = I18N[lang];
+
+      document.getElementById('txtStudioTitle').textContent = dict.studioTitle;
+      document.getElementById('lblDesktopCap').textContent = dict.desktopCap;
+      document.getElementById('lblMobileCap').textContent = dict.mobileCap;
+      document.getElementById('txtShortcutPrompt').textContent = dict.shortcutPrompt;
+      document.getElementById('txtPanelTitle').textContent = dict.controls;
+      document.getElementById('lblSecPattern').textContent = dict.secPattern;
+      document.getElementById('lblSecPalette').textContent = dict.secPalette;
+      document.getElementById('lblCreateCustomPalette').textContent = dict.createCustom;
+      document.getElementById('lblSecShade').textContent = dict.secShade;
+      document.getElementById('lblShadeDark').textContent = dict.dark;
+      document.getElementById('lblShadeLight').textContent = dict.light;
+      document.getElementById('lblSecComplexity').textContent = dict.secComplexity;
+      document.getElementById('lblToggleClock').textContent = dict.toggleClock;
+      document.getElementById('btnShuffleLabel').textContent = dict.btnShuffle;
+      document.getElementById('btnDownloadLabel').textContent = dict.btnExport;
+      document.getElementById('txtBtnExportTop').textContent = dict.btnExportTop;
+      document.getElementById('txtMobileConfig').textContent = dict.mobileConfig;
+      document.getElementById('txtCustomColorModalTitle').textContent = dict.customColorTitle;
+      document.getElementById('lblColorDeep').textContent = dict.colorDeep;
+      document.getElementById('lblColorMid1').textContent = dict.colorMid1;
+      document.getElementById('lblColorMid2').textContent = dict.colorMid2;
+      document.getElementById('lblColorHighlight').textContent = dict.colorHighlight;
+      document.getElementById('lblBtnApplyCustomPalette').textContent = dict.btnSaveCustom;
+      document.getElementById('txtExportModalTitle').textContent = dict.exportTitle;
+      document.getElementById('lblExportResolution').textContent = dict.resolutionPreset;
+      document.getElementById('lblExportFormat').textContent = dict.fileFormat;
+      document.getElementById('lblExportQuality').textContent = dict.quality;
+      document.getElementById('lblBtnDownloadFile').textContent = dict.downloadNow;
+      document.getElementById('toastMessage').textContent = dict.toastSuccess;
+      document.getElementById('activeLangTag').textContent = lang.toUpperCase();
+
+      // Update labels inside pattern elements
+      document.querySelectorAll('.pattern-item').forEach((item, idx) => {
+        const lbl = item.querySelector('.pattern-label');
+        if (lbl) lbl.textContent = dict.patterns[PATTERNS[idx]];
+      });
+
+      // Update palette circles titles
+      document.querySelectorAll('.palette-circle').forEach((circle, idx) => {
+        if (PALETTES[idx]) circle.title = dict.palettes[PALETTES[idx].name] || PALETTES[idx].name;
+      });
+
+      renderCanvases();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastNotification');
+      if (msg) document.getElementById('toastMessage').textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2600);
+    }
+
+    /* ── 6. MOVABLE / DRAGGABLE SIDEBAR CONTROLLER ── */
+    function setupDraggablePanel() {
+      const panel = document.getElementById('draggablePanel');
+      const dragBar = document.getElementById('panelDragBar');
+      let isDragging = false;
+      let startX = 0, startY = 0;
+      let initLeft = 0, initTop = 0;
+
+      dragBar.addEventListener('mousedown', (e) => {
+        if (window.innerWidth <= 820) return; // disable on mobile sheet mode
+        if (e.target.closest('#collapsePanelBtn')) return;
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        const rect = panel.getBoundingClientRect();
+        initLeft = rect.left;
+        initTop = rect.top;
+
+        // switch style from right pinned to explicit coordinates
+        panel.style.right = 'auto';
+        panel.style.left = `${initLeft}px`;
+        panel.style.top = `${initTop}px`;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        const boundedLeft = Math.max(10, Math.min(window.innerWidth - panel.offsetWidth - 10, initLeft + dx));
+        const boundedTop = Math.max(70, Math.min(window.innerHeight - 80, initTop + dy));
+
+        panel.style.left = `${boundedLeft}px`;
+        panel.style.top = `${boundedTop}px`;
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // Collapse / Expand toggle
+      document.getElementById('collapsePanelBtn').onclick = () => {
+        panel.classList.toggle('collapsed');
+      };
+    }
+
+    /* ── 7. CUSTOM COLOR PALETTE GENERATOR ── */
+    function updateCustomGradientPreview() {
+      const c1 = document.getElementById('colPick1').value;
+      const c2 = document.getElementById('colPick2').value;
+      const c3 = document.getElementById('colPick3').value;
+      const c4 = document.getElementById('colPick4').value;
+      document.getElementById('customGradientPreview').style.background = `linear-gradient(to right, ${c1}, ${c2}, ${c3}, ${c4})`;
+    }
+
+    function generate10ColorsFrom4(c1, c2, c3, c4) {
+      function interpolate(hexA, hexB, factor) {
+        const rA = parseInt(hexA.slice(1,3),16), gA = parseInt(hexA.slice(3,5),16), bA = parseInt(hexA.slice(5,7),16);
+        const rB = parseInt(hexB.slice(1,3),16), gB = parseInt(hexB.slice(3,5),16), bB = parseInt(hexB.slice(5,7),16);
+        const r = Math.round(rA + (rB - rA) * factor).toString(16).padStart(2, '0');
+        const g = Math.round(gA + (gB - gA) * factor).toString(16).padStart(2, '0');
+        const b = Math.round(bA + (bB - bA) * factor).toString(16).padStart(2, '0');
+        return `#${r}${g}${b}`;
+      }
+      return [
+        c1,
+        interpolate(c1, c2, 0.5),
+        c2,
+        interpolate(c2, c3, 0.35),
+        interpolate(c2, c3, 0.7),
+        c3,
+        interpolate(c3, c4, 0.35),
+        interpolate(c3, c4, 0.7),
+        c4,
+        '#ffffff'
+      ];
+    }
+
+    /* ── 8. EXPORT CONTROLLER ── */
+    async function triggerExportWallpaper() {
+      const preset = document.getElementById('exportPresetSelect').value;
+      let width = 3840, height = 2160;
+
+      if (preset === 'custom') {
+        width = parseInt(document.getElementById('customExportW').value) || 1920;
+        height = parseInt(document.getElementById('customExportH').value) || 1080;
+      } else {
+        const parts = preset.split('x');
+        width = parseInt(parts[0]);
+        height = parseInt(parts[1]);
+      }
+
+      const format = document.getElementById('exportFormatSelect').value;
+      const quality = parseFloat(document.getElementById('sliderExportQuality').value);
+
+      const renderCanvas = document.createElement('canvas');
+      renderCanvas.width = width;
+      renderCanvas.height = height;
+      const ctx = renderCanvas.getContext('2d');
+
+      // Draw high-resolution wallpaper pattern
+      drawPattern(ctx, width, height, currentPattern, currentPalette, seed, inverted, userScale);
+
+      renderCanvas.toBlob((blob) => {
+        const ext = format === 'image/jpeg' ? 'jpg' : (format === 'image/webp' ? 'webp' : 'png');
+        const fileName = `wllpr-${PATTERNS[currentPattern]}-${width}x${height}.${ext}`;
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1200);
+
+        document.getElementById('exportModal').classList.remove('open');
+        showToast(I18N[currentLang].toastSuccess);
+      }, format, quality);
+    }
+
+    /* ── 9. INITIALIZATION & BINDINGS ── */
+    window.addEventListener('DOMContentLoaded', () => {
+      initPatternGrid();
+      initPaletteGrid();
+      renderCanvases();
+      setupDraggablePanel();
+
+      // Language Switcher Dropdown
+      const langBtn = document.getElementById('langDropdownBtn');
+      const langMenu = document.getElementById('langMenu');
+      langBtn.onclick = (e) => {
+        e.stopPropagation();
+        langMenu.classList.toggle('active');
+      };
+
+      document.addEventListener('click', () => {
+        langMenu.classList.remove('active');
+      });
+
+      document.querySelectorAll('#langMenu .dropdown-item').forEach(opt => {
+        opt.onclick = () => {
+          document.querySelectorAll('#langMenu .dropdown-item').forEach(x => x.classList.remove('active'));
+          opt.classList.add('active');
+          applyLanguage(opt.dataset.lang);
+        };
+      });
+
+      // App Theme Toggles (Dark / Light)
+      const btnDark = document.getElementById('btnThemeDark');
+      const btnLight = document.getElementById('btnThemeLight');
+
+      btnDark.onclick = () => {
+        document.body.classList.remove('light');
+        btnDark.classList.add('active');
+        btnLight.classList.remove('active');
+      };
+      btnLight.onclick = () => {
+        document.body.classList.add('light');
+        btnLight.classList.add('active');
+        btnDark.classList.remove('active');
+      };
+
+      // Shade Inversion (Wallpaper Art Dark / Light)
+      const btnShadeDark = document.getElementById('btnShadeDark');
+      const btnShadeLight = document.getElementById('btnShadeLight');
+
+      btnShadeDark.onclick = () => {
+        inverted = false;
+        btnShadeDark.classList.add('active');
+        btnShadeLight.classList.remove('active');
+        renderCanvases();
+      };
+      btnShadeLight.onclick = () => {
+        inverted = true;
+        btnShadeLight.classList.add('active');
+        btnShadeDark.classList.remove('active');
+        renderCanvases();
+      };
+
+      // Complexity & Scale Slider
+      const sliderDensity = document.getElementById('sliderDensity');
+      sliderDensity.oninput = (e) => {
+        userScale = parseFloat(e.target.value);
+        document.getElementById('lblScaleDisplay').textContent = `${userScale.toFixed(1)}x`;
+        renderCanvases();
+      };
+
+      // Clock preview toggle
+      document.getElementById('chkShowClock').onchange = (e) => {
+        showClock = e.target.checked;
+        renderCanvases();
+      };
+
+      // Shuffle variation
+      const randomizeSeed = () => {
+        seed = Math.floor(Math.random() * 100000);
+        renderCanvases();
+      };
+      document.getElementById('btnShuffleSeed').onclick = randomizeSeed;
+
+      // Spacebar Shortcut
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+          e.preventDefault();
+          randomizeSeed();
+        }
+      });
+
+      // Mobile Sheet Toggle
+      const mobileToggle = document.getElementById('mobileSheetToggle');
+      const panel = document.getElementById('draggablePanel');
+      mobileToggle.onclick = () => {
+        panel.classList.toggle('sheet-open');
+      };
+
+      // Custom Color Modal Triggers
+      const customModal = document.getElementById('customColorModal');
+      document.getElementById('btnOpenCustomColorModal').onclick = () => {
+        updateCustomGradientPreview();
+        customModal.classList.add('open');
+      };
+      document.getElementById('closeCustomColorModalBtn').onclick = () => {
+        customModal.classList.remove('open');
+      };
+
+      ['colPick1', 'colPick2', 'colPick3', 'colPick4'].forEach(id => {
+        document.getElementById(id).oninput = updateCustomGradientPreview;
+      });
+
+      document.getElementById('btnSaveCustomPalette').onclick = () => {
+        const c1 = document.getElementById('colPick1').value;
+        const c2 = document.getElementById('colPick2').value;
+        const c3 = document.getElementById('colPick3').value;
+        const c4 = document.getElementById('colPick4').value;
+
+        const customColors = generate10ColorsFrom4(c1, c2, c3, c4);
+        const customPalette = {
+          name: `Custom ${PALETTES.length - DEFAULT_PALETTES.length + 1}`,
+          colors: customColors
+        };
+
+        PALETTES.push(customPalette);
+        localStorage.setItem('wllpr_custom_palettes', JSON.stringify(PALETTES.slice(DEFAULT_PALETTES.length)));
+
+        initPaletteGrid();
+        currentPalette = PALETTES.length - 1;
+        document.querySelectorAll('.palette-circle').forEach(el => el.classList.remove('active'));
+        const circles = document.querySelectorAll('.palette-circle');
+        if (circles[currentPalette]) circles[currentPalette].classList.add('active');
+
+        renderCanvases();
+        customModal.classList.remove('open');
+        showToast("Custom palette saved & applied!");
+      };
+
+      // Export Modal Triggers
+      const exportModal = document.getElementById('exportModal');
+      const openExport = () => exportModal.classList.add('open');
+      document.getElementById('openExportModalBtn').onclick = openExport;
+      document.getElementById('btnTriggerExport').onclick = openExport;
+      document.getElementById('closeExportModalBtn').onclick = () => exportModal.classList.remove('open');
+
+      document.getElementById('exportPresetSelect').onchange = (e) => {
+        const customDiv = document.getElementById('customDimRow');
+        customDiv.style.display = e.target.value === 'custom' ? 'flex' : 'none';
+      };
+
+      document.getElementById('exportFormatSelect').onchange = (e) => {
+        const showQuality = e.target.value !== 'image/png';
+        document.getElementById('qualitySliderRow').style.display = showQuality ? 'flex' : 'none';
+      };
+
+      document.getElementById('sliderExportQuality').oninput = (e) => {
+        document.getElementById('qualityValDisplay').textContent = `${Math.round(e.target.value * 100)}%`;
+      };
+
+      document.getElementById('btnDownloadRendered').onclick = triggerExportWallpaper;
+    });
+  </script>
+</body>
+</html>
